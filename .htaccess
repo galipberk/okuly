@@ -1,0 +1,39 @@
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Authorization header'ı aktar (token için zorunlu)
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Gerçek dosyaysa doğrudan sun (api.php, setup.php, test.php, assets...)
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # /api/* → api.php (mod_rewrite varsa)
+    RewriteRule ^api(/.*)?$ api.php$1 [QSA,L]
+
+    # Panel rotaları → panel/index.html (SPA)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^panel/.*$ panel/index.html [L]
+    RewriteRule ^$ panel/index.html [L]
+</IfModule>
+
+# Hassas dosyaları koru
+<FilesMatch "^config\.php$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+<FilesMatch "\.(sql|log|sh|bak|env)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<IfModule mod_php8.c>
+    php_value memory_limit 256M
+    php_value max_execution_time 60
+    php_flag display_errors Off
+</IfModule>

@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Okul Yönetim Paneli</title>
+<script src="/assets/js/vue.min.js"></script>
+<script src="/assets/js/axios.min.js"></script>
+<link rel="stylesheet" href="/assets/css/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--nav:#0f1f3d;--nav-h:#162d56;--nav-a:#1e40af;--acc:#2563eb;--ok:#16a34a;--warn:#d97706;--err:#dc2626;--pur:#7c3aed;--bg:#f1f5f9;--card:#fff;--bdr:#e2e8f0;--t1:#0f172a;--t2:#475569;--t3:#94a3b8;--r:8px;--rs:6px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--t1);font-size:14px;min-height:100vh}
+.layout{display:flex;min-height:100vh}
+/* Sidebar */
+.sb{width:230px;flex-shrink:0;background:var(--nav);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;overflow-y:auto;transition:transform .25s}
+.main{margin-left:230px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+@media(max-width:768px){.sb{transform:translateX(-100%)}.sb.open{transform:translateX(0)}.main{margin-left:0}.mob-ol{display:block!important}}
+.mob-ol{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99}
+.logo{padding:18px 14px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+.logo-t{color:#fff;font-size:14px;font-weight:700}.logo-s{color:rgba(255,255,255,.35);font-size:11px;margin-top:2px}
+.ns{padding:14px 14px 4px;font-size:10px;color:rgba(255,255,255,.28);font-weight:700;letter-spacing:.9px;text-transform:uppercase}
+.ni{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 6px;cursor:pointer;color:rgba(255,255,255,.5);font-size:13px;font-weight:500;transition:all .14s}
+.ni:hover{background:var(--nav-h);color:rgba(255,255,255,.85)}.ni.act{background:var(--nav-a);color:#fff}
+.ni i{font-size:17px;width:18px;flex-shrink:0}
+.nb{margin-left:auto;background:var(--err);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px}
+.sf{margin-top:auto;padding:12px 8px 14px;border-top:1px solid rgba(255,255,255,.07)}
+.up{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .14s}
+.up:hover{background:var(--nav-h)}
+.av{width:32px;height:32px;border-radius:50%;background:var(--nav-a);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0}
+.un{color:rgba(255,255,255,.8);font-size:12px;font-weight:600}.ur{color:rgba(255,255,255,.35);font-size:10px}
+/* Topbar */
+.tb{background:var(--card);border-bottom:1px solid var(--bdr);padding:0 20px;height:54px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:50;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.ham{display:none;background:none;border:1px solid var(--bdr);border-radius:var(--rs);width:36px;height:36px;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--t2)}
+@media(max-width:768px){.ham{display:flex}}
+.pt{font-size:15px;font-weight:700}
+.tbr{display:flex;align-items:center;gap:8px}
+.ib{width:36px;height:36px;border:1px solid var(--bdr);border-radius:var(--rs);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t2);font-size:18px;position:relative;transition:all .14s}
+.ib:hover{background:var(--bg)}.nd{position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--err);border:2px solid var(--card)}
+/* Content */
+.cnt{padding:20px;flex:1}
+@media(max-width:600px){.cnt{padding:14px}}
+/* Cards */
+.card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.ch{padding:13px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.ct{font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px}.cb{padding:18px}
+.mb{margin-bottom:14px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:900px){.g3{grid-template-columns:1fr 1fr}}
+@media(max-width:768px){.g2,.g3{grid-template-columns:1fr}}
+/* Stat kartları */
+.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+@media(max-width:768px){.sg{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.sg{grid-template-columns:1fr}}
+.sc{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);display:flex;flex-direction:column;gap:4px}
+.si{font-size:28px;margin-bottom:6px}.sv{font-size:28px;font-weight:800;line-height:1}.sl{font-size:12px;color:var(--t2);font-weight:500}.ss{font-size:11px;color:var(--t3)}
+/* Tablo */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead th{padding:9px 13px;text-align:left;font-size:11px;font-weight:700;color:var(--t3);background:#f8fafc;border-bottom:1px solid var(--bdr);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{color:var(--acc)}
+tbody td{padding:9px 13px;border-bottom:1px solid var(--bdr);font-size:13px}
+tbody tr:last-child td{border-bottom:none}tbody tr:hover td{background:#f8fafc}
+/* Form */
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.fg:last-child{margin-bottom:0}
+label{font-size:12px;font-weight:600;color:var(--t2)}
+input,select,textarea{width:100%;padding:8px 11px;border:1px solid var(--bdr);border-radius:var(--rs);background:var(--card);color:var(--t1);font-size:13px;font-family:inherit;outline:none;transition:border-color .14s}
+input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 2px rgba(37,99,235,.08)}
+input[type=checkbox],input[type=radio]{width:auto;accent-color:var(--acc);cursor:pointer}
+textarea{resize:vertical;min-height:80px;line-height:1.5}
+.gc2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.gc3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media(max-width:520px){.gc2,.gc3{grid-template-columns:1fr}}
+/* Buttons */
+.btn{padding:7px 14px;border-radius:var(--rs);font-size:13px;font-weight:600;border:1px solid;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .14s;white-space:nowrap;font-family:inherit;line-height:1}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-p{background:var(--acc);color:#fff;border-color:var(--acc)}.btn-p:hover:not(:disabled){background:#1d4ed8}
+.btn-s{background:var(--card);color:var(--t1);border-color:var(--bdr)}.btn-s:hover:not(:disabled){background:var(--bg)}
+.btn-d{background:var(--err);color:#fff;border-color:var(--err)}.btn-d:hover:not(:disabled){background:#b91c1c}
+.btn-ok{background:var(--ok);color:#fff;border-color:var(--ok)}
+.btn-w{background:var(--warn);color:#fff;border-color:var(--warn)}
+.btn-wa{background:#25D366;color:#fff;border-color:#25D366}.btn-wa:hover{background:#1da851}
+.btn-pur{background:var(--pur);color:#fff;border-color:var(--pur)}
+.btn-sm{padding:5px 10px;font-size:12px}.btn-xs{padding:3px 8px;font-size:11px}
+.btn-fl{width:100%;justify-content:center}
+/* Badge */
+.bdg{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.b-ok{background:#dcfce7;color:#15803d}.b-w{background:#fef3c7;color:#92400e}.b-e{background:#fee2e2;color:#991b1b}
+.b-i{background:#dbeafe;color:#1e40af}.b-g{background:#f1f5f9;color:var(--t2)}.b-p{background:#ede9fe;color:#6d28d9}
+.b-ora{background:#fff7ed;color:#9a3412}
+/* Alert */
+.al{padding:10px 13px;border-radius:var(--rs);font-size:13px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;line-height:1.5}
+.al i{font-size:16px;flex-shrink:0;margin-top:1px}
+.al-ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+.al-e{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+.al-w{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+.al-i{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+/* Modal */
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal{background:var(--card);border-radius:var(--r);width:100%;max-width:560px;box-shadow:0 8px 30px rgba(0,0,0,.15);animation:fup .2s ease;margin:auto}
+.modal-lg{max-width:720px}
+@keyframes fup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.mh{padding:15px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--card);z-index:1;border-radius:var(--r) var(--r) 0 0}
+.mt{font-size:15px;font-weight:700}
+.mc{background:none;border:none;font-size:20px;color:var(--t3);cursor:pointer;padding:2px;line-height:1}.mc:hover{color:var(--t1)}
+.mbody{padding:20px}
+.mf{padding:13px 20px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--card);border-radius:0 0 var(--r) var(--r)}
+/* Login */
+.lbg{min-height:100vh;background:linear-gradient(135deg,#0f1f3d 0%,#1e3a8a 60%,#1e40af 100%);display:flex;align-items:center;justify-content:center;padding:20px}
+.lc{background:var(--card);border-radius:12px;padding:36px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.llo{text-align:center;margin-bottom:26px}
+.llo span{font-size:46px;display:block;margin-bottom:8px}
+.llo h1{font-size:20px;font-weight:800}.llo p{font-size:13px;color:var(--t3);margin-top:4px}
+/* Devamsızlık */
+.ag{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.ac{border:1px solid var(--bdr);border-radius:var(--r);padding:12px;background:var(--card);transition:border-color .14s}
+.ac.gelmedi{border-color:#fca5a5;background:#fef2f2}
+.ac.mazeretli{border-color:#fcd34d;background:#fffbeb}
+.an{font-weight:600;font-size:12px;margin-bottom:8px;color:var(--t1)}
+.an-sub{font-size:10px;color:var(--t3);font-weight:400;margin-top:2px}
+.ab-g{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.ab{padding:7px 4px;border-radius:var(--rs);font-size:11px;font-weight:700;border:1.5px solid;cursor:pointer;text-align:center;transition:all .12s;background:transparent}
+.ab-geldi{border-color:var(--ok);color:var(--ok)}.ab-geldi.sel{background:var(--ok);color:#fff}
+.ab-gelmedi{border-color:var(--err);color:var(--err)}.ab-gelmedi.sel{background:var(--err);color:#fff}
+.ab-maz{border-color:var(--warn);color:var(--warn)}.ab-maz.sel{background:var(--warn);color:#fff}
+/* Limit bar */
+.lim-bar{height:6px;border-radius:3px;background:#f1f5f9;overflow:hidden;margin-top:3px}
+.lim-fill{height:100%;border-radius:3px;transition:width .3s}
+/* Takvim */
+.cal-wrap{padding:16px}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.cal-title{font-size:14px;font-weight:700;color:var(--t1)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-dow{text-align:center;font-size:10px;font-weight:700;color:var(--t3);padding:4px 0;text-transform:uppercase}
+.cal-day{min-height:42px;border-radius:var(--rs);border:1px solid var(--bdr);padding:4px;position:relative;background:var(--card);transition:border-color .14s}
+.cal-day:hover{border-color:var(--acc)}
+.cal-day.empty{background:transparent;border-color:transparent}
+.cal-day.today{border-color:var(--acc);background:#eff6ff}
+.cal-num{font-size:11px;font-weight:600;color:var(--t2)}
+.cal-badge{position:absolute;top:3px;right:3px;background:var(--err);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 5px;min-width:16px;text-align:center;cursor:pointer}
+.cal-tooltip{position:absolute;top:100%;right:0;z-index:10;background:#1e293b;color:#fff;padding:8px 10px;border-radius:6px;font-size:11px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.2);margin-top:4px;min-width:120px}
+.cal-tooltip::before{content:'';position:absolute;top:-4px;right:8px;border:4px solid transparent;border-bottom-color:#1e293b;border-top:none}
+/* Misc */
+.banner{background:linear-gradient(135deg,#0f1f3d,#1e3a8a);border-radius:var(--r);padding:14px 18px;display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.bi{font-size:28px;flex-shrink:0}.bt{color:#fff;font-size:14px;font-weight:700}.bs{color:rgba(255,255,255,.45);font-size:12px}
+.bb{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.empty{text-align:center;padding:40px 20px;color:var(--t3)}
+.empty i{font-size:38px;margin-bottom:10px;display:block}
+.pb{height:5px;border-radius:3px;background:var(--bg);overflow:hidden}
+.pf{height:100%;border-radius:3px;transition:width .3s}
+.sp{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+.sp-d{border-color:rgba(0,0,0,.1);border-top-color:var(--acc)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lw{display:flex;align-items:center;justify-content:center;padding:60px;gap:12px;color:var(--t3);font-size:13px}
+.ls{width:24px;height:24px;border:2.5px solid var(--bdr);border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite}
+.tw-wrap{position:fixed;bottom:20px;right:20px;z-index:500;display:flex;flex-direction:column;gap:8px;max-width:320px}
+.tw-item{padding:10px 14px;border-radius:var(--rs);color:#fff;font-size:13px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.15);animation:si .25s ease;display:flex;align-items:center;gap:8px}
+@keyframes si{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.tw-ok{background:var(--ok)}.tw-e{background:var(--err)}.tw-w{background:var(--warn)}.tw-i{background:var(--acc)}
+.tag{display:inline-flex;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;background:var(--bg);color:var(--t2)}
+.sec{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--bdr)}
+hr{border:none;border-top:1px solid var(--bdr);margin:13px 0}
+a{color:var(--acc);text-decoration:none}
+.bildirim-tercih{display:flex;gap:12px}
+.bildirim-tercih label{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:var(--t1);cursor:pointer}
+.od-ok{background:#dcfce7;color:#15803d}.od-b{background:#fef3c7;color:#92400e}.od-e{background:#fee2e2;color:#991b1b}.od-m{background:#f1f5f9;color:var(--t2)}.od-t{background:#dbeafe;color:#1e40af}
+.note-card{padding:14px 18px;border-bottom:1px solid var(--bdr)}
+.note-card:last-child{border-bottom:none}
+.sort-btn{font-size:11px;padding:4px 9px;border:1px solid var(--bdr);border-radius:4px;background:transparent;cursor:pointer;color:var(--t2);transition:all .12s}
+.sort-btn.act{background:var(--acc);color:#fff;border-color:var(--acc)}
+.copy-btn{padding:5px 10px;border:1px solid var(--bdr);border-radius:var(--rs);background:transparent;cursor:pointer;color:var(--t2);font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;transition:all .14s}
+.copy-btn:hover{background:var(--bg);color:var(--t1)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- GİRİŞ -->
+<div v-if="!loggedIn" class="lbg">
+  <div class="lc">
+    <div class="llo"><span>📚</span><h1>Okul Yönetim Paneli</h1><p>kodlayap.tr</p></div>
+    <div v-if="loginErr" class="al al-e"><i class="ti ti-alert-circle"></i><span>{{ loginErr }}</span></div>
+    <div class="fg"><label>E-posta</label><input type="email" v-model="lf.email" @keyup.enter="doLogin" :disabled="lLoad" placeholder="admin@kodlayap.tr"></div>
+    <div class="fg"><label>Şifre</label><input type="password" v-model="lf.sifre" @keyup.enter="doLogin" :disabled="lLoad" placeholder="••••••••"></div>
+    <button class="btn btn-p btn-fl" style="margin-top:8px;padding:11px" @click="doLogin" :disabled="lLoad">
+      <span v-if="lLoad" class="sp"></span><i v-else class="ti ti-login"></i>
+      {{ lLoad ? 'Giriş yapılıyor…' : 'Giriş Yap' }}
+    </button>
+    <div style="text-align:center;margin-top:14px;font-size:12px;color:var(--t3)"><i class="ti ti-phone"></i> 0462 223 44 66</div>
+  </div>
+</div>
+
+<!-- ANA PANEL -->
+<div v-else class="layout">
+  <div class="mob-ol" v-show="sbOpen" @click="sbOpen=false"></div>
+  <aside class="sb" :class="{open:sbOpen}">
+    <div class="logo">
+      <div style="font-size:24px;margin-bottom:4px">📚</div>
+      <div class="logo-t">{{ okul.adi||'Okul Paneli' }}</div>
+      <div class="logo-s">2024–2025</div>
+    </div>
+    <div style="flex:1;padding-bottom:8px">
+      <div class="ns">Menü</div>
+      <div v-for="n in navItems" :key="n.k" class="ni" :class="{act:page===n.k}" @click="goTo(n.k)">
+        <i :class="'ti '+n.i"></i><span>{{ n.l }}</span>
+        <span v-if="n.b>0" class="nb">{{ n.b }}</span>
+      </div>
+    </div>
+    <div class="sf">
+      <div class="up"><div class="av">{{ initials }}</div>
+        <div><div class="un">{{ user.ad }} {{ user.soyad }}</div><div class="ur">{{ rolStr }}</div></div>
+      </div>
+      <button class="btn btn-s btn-sm btn-fl" style="margin-top:8px" @click="doLogout"><i class="ti ti-logout"></i>Çıkış</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="tb">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="ham" @click="sbOpen=!sbOpen"><i class="ti ti-menu-2"></i></button>
+        <span class="pt">{{ pTitle }}</span>
+      </div>
+      <div class="tbr">
+        <button class="ib" @click="goTo('bildirim')"><i class="ti ti-bell"></i><span v-if="failedC>0" class="nd"></span></button>
+        <button class="ib" @click="reload"><i class="ti ti-refresh"></i></button>
+      </div>
+    </div>
+
+    <div class="cnt">
+      <div v-if="loading&&!ready" class="lw"><div class="ls"></div>Yükleniyor…</div>
+
+      <!-- ══════ DASHBOARD ══════ -->
+      <template v-else-if="page==='dashboard'">
+        <div class="banner">
+          <span class="bi">🏫</span>
+          <div><div class="bt">{{ okul.adi }}</div><div class="bs">Veli İletişim: {{ okul.telefon }}</div></div>
+          <div class="bb">
+            <a :href="'https://wa.me/90'+okul.whatsapp.replace(/\D/g,'')" target="_blank" class="btn btn-wa btn-sm"><i class="ti ti-brand-whatsapp"></i>WhatsApp</a>
+            <a :href="'tel:'+okul.telefon" class="btn btn-s btn-sm" style="color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.1)"><i class="ti ti-phone"></i>{{ okul.telefon }}</a>
+          </div>
+        </div>
+
+        <!-- 3 Öğrenci Stat Kartı -->
+        <div class="sg">
+          <div class="sc" style="border-left:3px solid var(--acc)">
+            <div class="si">🎓</div><div class="sv" style="color:var(--acc)">{{ stats.egitim_ogrenci||0 }}</div>
+            <div class="sl">Aktif Eğitim Öğrencisi</div><div class="ss">Eğitim programı</div>
+          </div>
+          <div class="sc" style="border-left:3px solid var(--pur)">
+            <div class="si">🔬</div><div class="sv" style="color:var(--pur)">{{ stats.proje_ogrenci||0 }}</div>
+            <div class="sl">Aktif Proje Öğrencisi</div><div class="ss">Proje programı</div>
+          </div>
+          <div class="sc" style="border-left:3px solid var(--ok)">
+            <div class="si">📊</div><div class="sv" style="color:var(--ok)">{{ stats.toplam_ogrenci||0 }}</div>
+            <div class="sl">Toplam Öğrenci</div><div class="ss">Mezunlar dahil</div>
+          </div>
+        </div>
+
+        <div class="g2" style="margin-bottom:14px">
+          <!-- Takvim -->
+          <div class="card">
+            <div class="ch">
+              <span class="ct"><i class="ti ti-calendar"></i>Devamsızlık Takvimi</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn btn-s btn-sm" @click="prevMonth"><i class="ti ti-chevron-left"></i></button>
+                <span style="font-size:13px;font-weight:600;min-width:110px;text-align:center">{{ calMonthName }} {{ calYear }}</span>
+                <button class="btn btn-s btn-sm" @click="nextMonth"><i class="ti ti-chevron-right"></i></button>
+              </div>
+            </div>
+            <div class="cal-wrap">
+              <div class="cal-grid">
+                <div v-for="d in ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz']" :key="d" class="cal-dow">{{ d }}</div>
+                <div v-for="(day,i) in calDays" :key="i" class="cal-day" :class="{empty:!day,today:isToday(day)}"
+                     @mouseenter="hovDay=day?dayKey(day):null" @mouseleave="hovDay=null">
+                  <template v-if="day">
+                    <div class="cal-num">{{ day }}</div>
+                    <div v-if="calData[dayKey(day)]" class="cal-badge">{{ calData[dayKey(day)].sayi }}</div>
+                    <div v-if="hovDay===dayKey(day)&&calData[dayKey(day)]" class="cal-tooltip">
+                      <div v-for="n in calData[dayKey(day)].ogrenciler" :key="n" style="padding:1px 0">{{ n }}</div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kritik Devamsızlık -->
+          <div class="card">
+            <div class="ch"><span class="ct"><i class="ti ti-alert-triangle" style="color:var(--err)"></i>Kritik Devamsızlık</span><span class="bdg b-e">{{ kritikList.length }} öğrenci</span></div>
+            <div v-if="!kritikList.length" class="empty" style="padding:20px"><i class="ti ti-check" style="font-size:28px;color:var(--ok)"></i><p>Kritik öğrenci yok</p></div>
+            <div v-for="k in kritikList" :key="k.id" style="padding:9px 16px;border-bottom:1px solid var(--bdr);font-size:13px">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span style="font-weight:600;flex:1">{{ k.ad }} {{ k.soyad }}</span>
+                <span class="bdg b-e" v-if="k.gelmedi>=3">{{ k.gelmedi }} Gelmedi</span>
+                <span class="bdg b-w" v-if="k.mazeretli>=3">{{ k.mazeretli }} Mazeretli</span>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:4px">
+                <div style="flex:1"><div style="font-size:10px;color:var(--t3)">Gelmedi {{ k.gelmedi }}/{{ okul.devamsizlik_limit_normal||4 }}</div>
+                  <div class="lim-bar"><div class="lim-fill" :style="{width:(k.gelmedi/(okul.devamsizlik_limit_normal||4)*100)+'%',background:k.gelmedi>=3?'var(--err)':'var(--warn)'}"></div></div>
+                </div>
+                <div style="flex:1"><div style="font-size:10px;color:var(--t3)">Mazeretli {{ k.mazeretli }}/{{ okul.devamsizlik_limit_mazeret||4 }}</div>
+                  <div class="lim-bar"><div class="lim-fill" :style="{width:(k.mazeretli/(okul.devamsizlik_limit_mazeret||4)*100)+'%',background:k.mazeretli>=3?'var(--warn)':'var(--acc)'}"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Okunmamış Notlar -->
+        <div class="card mb" v-if="okunmamisNotlar.length">
+          <div class="ch"><span class="ct"><i class="ti ti-notes" style="color:var(--warn)"></i>Okunmamış Öğretmen Notları</span><span class="bdg b-w">{{ okunmamisNotlar.length }}</span></div>
+          <div v-for="n in okunmamisNotlar" :key="n.id" class="note-card">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-weight:700;font-size:13px">{{ n.ogrenci_adi }} {{ n.ogrenci_soyad }}</span>
+              <span :class="'bdg '+(n.onem==='acil'?'b-e':n.onem==='onemli'?'b-w':'b-g')">{{ n.onem==='acil'?'⚠ Acil':n.onem==='onemli'?'Önemli':'Normal' }}</span>
+              <span class="bdg b-i" style="text-transform:capitalize">{{ n.kategori }}</span>
+              <span style="font-size:11px;color:var(--t3);margin-left:auto">{{ n.olusturma?.slice(0,16).replace('T',' ') }}</span>
+            </div>
+            <div v-if="n.baslik" style="font-weight:600;font-size:13px;margin:4px 0 2px">{{ n.baslik }}</div>
+            <div style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:6px">{{ n.icerik }}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-s btn-xs" @click="noteDetail=n"><i class="ti ti-eye"></i>İncele</button>
+              <button class="btn btn-ok btn-xs" @click="markNoteRead(n.id)"><i class="ti ti-check"></i>Okundu İşaretle</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hızlı İşlemler -->
+        <div class="card">
+          <div class="ch"><span class="ct"><i class="ti ti-bolt"></i>Hızlı İşlemler</span></div>
+          <div class="cb" style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn btn-p btn-sm" @click="goTo('devamsizlik')"><i class="ti ti-calendar-check"></i>Devamsızlık Gir</button>
+            <button class="btn btn-s btn-sm" @click="goTo('ogrenciler');openOModal()"><i class="ti ti-user-plus"></i>Öğrenci Ekle</button>
+            <button class="btn btn-s btn-sm" @click="goTo('notlar');notModal=true;resetNF()"><i class="ti ti-notes"></i>Not Ekle</button>
+            <button class="btn btn-s btn-sm" @click="goTo('kullanicilar');openUModal()"><i class="ti ti-user-check"></i>Kullanıcı Ekle</button>
+            <button class="btn btn-s btn-sm" @click="goTo('ayarlar')"><i class="ti ti-settings"></i>Ayarlar</button>
+          </div>
+        </div>
+
+        <!-- Not detay modal -->
+        <div v-if="noteDetail" class="mbg" @click.self="noteDetail=null">
+          <div class="modal"><div class="mh"><span class="mt">Not Detayı</span><button class="mc" @click="noteDetail=null">✕</button></div>
+            <div class="mbody">
+              <div style="margin-bottom:8px"><span class="bdg b-i">{{ noteDetail.ogrenci_adi }} {{ noteDetail.ogrenci_soyad }}</span></div>
+              <div v-if="noteDetail.baslik" style="font-weight:700;margin-bottom:6px">{{ noteDetail.baslik }}</div>
+              <div style="line-height:1.6;color:var(--t2);white-space:pre-wrap">{{ noteDetail.icerik }}</div>
+              <div style="margin-top:10px;font-size:12px;color:var(--t3)">— {{ noteDetail.ogretmen_adi }} {{ noteDetail.ogretmen_soyad }} · {{ noteDetail.olusturma?.slice(0,16).replace('T',' ') }}</div>
+            </div>
+            <div class="mf">
+              <button class="btn btn-s" @click="noteDetail=null">Kapat</button>
+              <button class="btn btn-ok" @click="markNoteRead(noteDetail.id);noteDetail=null"><i class="ti ti-check"></i>Okundu İşaretle</button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- ══════ ÖĞRENCİLER ══════ -->
+      <template v-else-if="page==='ogrenciler'">
+        <div class="card">
+          <div class="ch">
+            <span class="ct"><i class="ti ti-users"></i>Öğrenciler ({{ filteredStudents.length }})</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <!-- Tür filtresi -->
+              <div style="display:flex;gap:4px">
+                <button v-for="t in [{v:'',l:'Tümü'},{v:'egitim',l:'🎓 Eğitim'},{v:'proje',l:'🔬 Proje'}]" :key="t.v" :class="'sort-btn'+(sTur===t.v?' act':'')" @click="sTur=t.v">{{ t.l }}</button>
+              </div>
+              <input v-model="sQ" placeholder="Ara…" style="padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px;width:160px">
+              <button v-if="isAdmin" class="btn btn-p btn-sm" @click="openOModal()"><i class="ti ti-plus"></i>Yeni</button>
+            </div>
+          </div>
+          <!-- Sıralama -->
+          <div style="padding:8px 16px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--bdr)">
+            <span style="font-size:11px;color:var(--t3);font-weight:600">SIRALA:</span>
+            <button v-for="s in [{v:'soyad',l:'Ad'},{v:'okul_adi',l:'Okul'},{v:'odeme_durumu',l:'Ödeme'},{v:'gelmedi_sayi',l:'Devamsızlık'}]" :key="s.v"
+              :class="'sort-btn'+(sSort===s.v?' act':'')" @click="toggleSort(s.v)">
+              {{ s.l }} <i :class="'ti '+(sSort===s.v?(sDir==='ASC'?'ti-sort-ascending':'ti-sort-descending'):'ti-selector')"></i>
+            </button>
+          </div>
+          <div class="tw">
+            <table>
+              <thead><tr>
+                <th>No / Kurum No</th><th>Ad Soyad</th><th>Tür</th><th>Sınıf</th>
+                <th>TC</th><th>Okul</th><th>Baba / Anne</th>
+                <th>Devamsızlık</th><th>Ödeme</th><th>Yarışma</th>
+                <th v-if="isAdmin"></th>
+              </tr></thead>
+              <tbody>
+                <tr v-if="!filteredStudents.length"><td colspan="11"><div class="empty"><i class="ti ti-inbox"></i><p>Öğrenci yok</p></div></td></tr>
+                <tr v-for="s in filteredStudents" :key="s.id">
+                  <td style="font-family:monospace;font-size:11px">
+                    <div style="color:var(--t3)">{{ s.ogrenci_no }}</div>
+                    <div style="color:var(--acc);font-weight:600" v-if="s.kurum_no">{{ s.kurum_no }}</div>
+                  </td>
+                  <td style="font-weight:600">{{ s.ad }} {{ s.soyad }}</td>
+                  <td><span :class="'bdg '+(s.ogrenci_turu==='proje'?'b-p':'b-i')">{{ s.ogrenci_turu==='proje'?'🔬 Proje':'🎓 Eğitim' }}</span></td>
+                  <td><span class="tag" v-if="s.sinif_adi">{{ s.sinif_adi }}</span></td>
+                  <td style="font-family:monospace;font-size:11px;color:var(--t2)">{{ s.tc_no||'—' }}</td>
+                  <td style="font-size:12px;color:var(--t2)">{{ s.okul_adi||'—' }}</td>
+                  <td style="font-size:12px">
+                    <div>👨 {{ s.baba_adi||'—' }} <span v-if="s.baba_tel" style="color:var(--t3);font-size:11px">{{ s.baba_tel }}</span></div>
+                    <div style="margin-top:2px">👩 {{ s.anne_adi||'—' }} <span v-if="s.anne_tel" style="color:var(--t3);font-size:11px">{{ s.anne_tel }}</span></div>
+                    <div v-if="s.bildirim_tercih" style="font-size:10px;color:var(--acc);font-weight:600;margin-top:2px">
+                      <i class="ti ti-send"></i> {{ s.bildirim_tercih==='anne'?'Anne':'Baba' }}
+                    </div>
+                  </td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:5px">
+                      <span class="bdg b-e" v-if="s.gelmedi_sayi>0">{{ s.gelmedi_sayi }} G</span>
+                      <span class="bdg b-w" v-if="s.mazeret_sayi>0">{{ s.mazeret_sayi }} M</span>
+                      <span class="bdg b-g" v-if="!s.gelmedi_sayi&&!s.mazeret_sayi">—</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span :class="'bdg '+(s.odeme_durumu==='odendi'?'b-ok':s.odeme_durumu==='taksit'?'b-i':s.odeme_durumu==='muaf'?'b-g':'b-e')">
+                      {{ {odendi:'✓ Ödendi',bekliyor:'Bekliyor',taksit:'Taksit',muaf:'Muaf'}[s.odeme_durumu]||'—' }}
+                    </span>
+                    <div v-if="s.kayit_tutari>0" style="font-size:10px;color:var(--t3);margin-top:2px">{{ Number(s.kayit_tutari).toLocaleString('tr-TR') }} ₺</div>
+                  </td>
+                  <td style="font-size:12px;color:var(--t2)">
+                    <div v-if="s.yarisma_turu">{{ s.yarisma_turu }}</div>
+                    <div v-if="s.yarisma_alani" style="font-size:11px;color:var(--t3)">{{ s.yarisma_alani }}</div>
+                    <span v-if="!s.yarisma_turu">—</span>
+                  </td>
+                  <td v-if="isAdmin">
+                    <div style="display:flex;gap:4px">
+                      <button class="btn btn-s btn-xs" @click="openOModal(s)"><i class="ti ti-edit"></i></button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Öğrenci Modal -->
+        <div v-if="oModal" class="mbg" @click.self="oModal=false">
+          <div class="modal modal-lg">
+            <div class="mh"><span class="mt">{{ editO?'Öğrenci Düzenle':'Yeni Öğrenci Kaydı' }}</span><button class="mc" @click="oModal=false">✕</button></div>
+            <div class="mbody">
+              <div v-if="fErr" class="al al-e"><i class="ti ti-alert-circle"></i>{{ fErr }}</div>
+              <div class="sec">Öğrenci Türü</div>
+              <div style="display:flex;gap:10px;margin-bottom:12px">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px 16px;border:1.5px solid var(--bdr);border-radius:var(--rs);flex:1;transition:all .14s" :style="oF.ogrenci_turu==='egitim'?'border-color:var(--acc);background:#eff6ff':''">
+                  <input type="radio" v-model="oF.ogrenci_turu" value="egitim">
+                  <span>🎓 <strong>Eğitim Öğrencisi</strong></span>
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px 16px;border:1.5px solid var(--bdr);border-radius:var(--rs);flex:1;transition:all .14s" :style="oF.ogrenci_turu==='proje'?'border-color:var(--pur);background:#faf5ff':''">
+                  <input type="radio" v-model="oF.ogrenci_turu" value="proje">
+                  <span>🔬 <strong>Proje Öğrencisi</strong></span>
+                </label>
+              </div>
+              <div v-if="oF.ogrenci_turu==='proje'" class="fg">
+                <label>Danışman Öğretmen</label>
+                <select v-model="oF.danisman_id">
+                  <option value="">— Danışman Seçin —</option>
+                  <option v-for="t in ogretmenler" :key="t.id" :value="t.id">{{ t.ad }} {{ t.soyad }}</option>
+                </select>
+              </div>
+
+              <div class="sec">Kimlik & Numara</div>
+              <div class="gc3">
+                <div class="fg"><label>Ad *</label><input v-model="oF.ad" placeholder="Adı"></div>
+                <div class="fg"><label>Soyad *</label><input v-model="oF.soyad" placeholder="Soyadı"></div>
+                <div class="fg"><label>TC Kimlik No</label><input v-model="oF.tc_no" placeholder="11 haneli" maxlength="11"></div>
+              </div>
+              <div class="gc3">
+                <div class="fg"><label>Kurum Numarası <span style="color:var(--t3);font-size:10px">(opsiyonel)</span></label><input v-model="oF.kurum_no" placeholder="Örn: 2024-001"></div>
+                <div class="fg"><label>Doğum Tarihi</label><input type="date" v-model="oF.dogum_tarihi"></div>
+                <div class="fg"><label>Cinsiyet</label><select v-model="oF.cinsiyet"><option value="">—</option><option value="E">Erkek</option><option value="K">Kız</option></select></div>
+              </div>
+              <div class="gc2">
+                <div class="fg"><label>Sınıf</label>
+                  <select v-model="oF.sinif_id"><option value="">— Sınıf Seçin —</option><option v-for="s in siniflar" :key="s.id" :value="s.id">{{ s.ad }}</option></select>
+                </div>
+                <div class="fg"><label>Devam Ettiği Okul</label><input v-model="oF.okul_adi" placeholder="Okul adı"></div>
+              </div>
+
+              <div class="sec">Baba Bilgisi</div>
+              <div class="gc2">
+                <div class="fg"><label>Baba Adı Soyadı</label><input v-model="oF.baba_adi" placeholder="Baba adı soyadı"></div>
+                <div class="fg"><label>Baba Telefonu</label><input v-model="oF.baba_tel" placeholder="05xx xxx xx xx" type="tel"></div>
+              </div>
+
+              <div class="sec">Anne Bilgisi</div>
+              <div class="gc2">
+                <div class="fg"><label>Anne Adı Soyadı</label><input v-model="oF.anne_adi" placeholder="Anne adı soyadı"></div>
+                <div class="fg"><label>Anne Telefonu</label><input v-model="oF.anne_tel" placeholder="05xx xxx xx xx" type="tel"></div>
+              </div>
+
+              <div class="fg" style="margin-top:6px">
+                <label>Bildirim Gönderilecek Ebeveyn</label>
+                <div class="bildirim-tercih">
+                  <label><input type="radio" v-model="oF.bildirim_tercih" value="baba"> 👨 Baba ({{ oF.baba_tel||'tel girilmedi' }})</label>
+                  <label><input type="radio" v-model="oF.bildirim_tercih" value="anne"> 👩 Anne ({{ oF.anne_tel||'tel girilmedi' }})</label>
+                </div>
+              </div>
+
+              <div class="sec">Ödeme Bilgisi</div>
+              <div class="gc3">
+                <div class="fg"><label>Ödeme Durumu</label>
+                  <select v-model="oF.odeme_durumu"><option value="bekliyor">Bekliyor</option><option value="odendi">Ödendi</option><option value="taksit">Taksitli</option><option value="muaf">Muaf</option></select>
+                </div>
+                <div class="fg"><label>Kayıt Ücreti (₺)</label><input type="number" v-model="oF.kayit_tutari" placeholder="0"></div>
+                <div class="fg"><label>Acil Telefon</label><input v-model="oF.acil_tel" placeholder="05xx"></div>
+              </div>
+              <div class="fg"><label>Ödeme Notu</label><textarea v-model="oF.odeme_notu" style="min-height:55px" placeholder="Ödeme ile ilgili not…"></textarea></div>
+
+              <div class="sec">Yarışma Bilgileri</div>
+              <div class="gc2">
+                <div class="fg"><label>Yarışma Türü</label><input v-model="oF.yarisma_turu" placeholder="Örn: Ulusal, Uluslararası"></div>
+                <div class="fg"><label>Yarışma Alanı</label><input v-model="oF.yarisma_alani" placeholder="Örn: Robotik, Yazılım"></div>
+              </div>
+
+              <div class="sec">Diğer</div>
+              <div class="fg"><label>Sağlık Notu</label><textarea v-model="oF.saglik_notu" style="min-height:55px" placeholder="Alerji, ilaç vb."></textarea></div>
+            </div>
+            <div class="mf">
+              <button class="btn btn-s" @click="oModal=false">İptal</button>
+              <button class="btn btn-p" @click="saveOgrenci" :disabled="fSaving"><span v-if="fSaving" class="sp"></span><span v-else>Kaydet</span></button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- ══════ DEVAMSIZLIK ══════ -->
+      <template v-else-if="page==='devamsizlik'">
+        <div class="card mb">
+          <div class="ch"><span class="ct"><i class="ti ti-calendar-check"></i>Gün Bazlı Devamsızlık</span></div>
+          <div class="cb">
+            <div class="al al-i"><i class="ti ti-info-circle"></i>Her öğrencinin <strong>{{ okul.devamsizlik_limit_normal||4 }} gün gelmedi</strong> ve <strong>{{ okul.devamsizlik_limit_mazeret||4 }} gün mazeretli</strong> hakkı var. Hakkından {{ okul.devamsizlik_uyari_gun||3 }} gün kullananlar kritik listesine alınır.</div>
+            <div class="gc2">
+              <div class="fg"><label>Tarih</label><input type="date" v-model="devTarih" @change="loadDevList"></div>
+              <div class="fg"><label>Sınıf Filtresi</label>
+                <select v-model="devSinif"><option value="">Tüm öğrenciler</option><option v-for="s in siniflar" :key="s.id" :value="s.id">{{ s.ad }}</option></select>
+              </div>
+            </div>
+            <div v-if="devStudents.length">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+                <div style="font-size:13px;color:var(--t2)">
+                  <span class="bdg b-e">{{ devGelmediC }} Gelmedi</span>
+                  <span class="bdg b-w" style="margin-left:5px">{{ devMazC }} Mazeretli</span>
+                  <span class="bdg b-ok" style="margin-left:5px">{{ devStudents.length-devGelmediC-devMazC }} Geldi</span>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn btn-s btn-sm" @click="hepsiniGeldi">✓ Tümü Geldi</button>
+                  <button class="btn btn-p btn-sm" @click="saveDevamsizlik" :disabled="devSaving">
+                    <span v-if="devSaving" class="sp"></span><i v-else class="ti ti-send"></i>{{ devSaving?'Kaydediliyor…':'Kaydet & Bildir' }}
+                  </button>
+                </div>
+              </div>
+              <div class="ag">
+                <div v-for="s in devStudents" :key="s.id" class="ac" :class="devState[s.id]==='gelmedi'?'gelmedi':devState[s.id]==='mazeretli'?'mazeretli':''">
+                  <div class="an">{{ s.ad }} {{ s.soyad }}<div class="an-sub">{{ s.sinif_adi }} · G:{{ s.gelmedi_sayi||0 }}/{{ okul.devamsizlik_limit_normal||4 }} M:{{ s.mazeret_sayi||0 }}/{{ okul.devamsizlik_limit_mazeret||4 }}</div></div>
+                  <div class="ab-g">
+                    <div :class="'ab ab-geldi'+(!devState[s.id]||devState[s.id]==='geldi'?' sel':'')" @click="setDev(s.id,'geldi')">Geldi</div>
+                    <div :class="'ab ab-gelmedi'+(devState[s.id]==='gelmedi'?' sel':'')" @click="setDev(s.id,'gelmedi')">Gelmedi</div>
+                    <div :class="'ab ab-maz'+(devState[s.id]==='mazeretli'?' sel':'')" @click="setDev(s.id,'mazeretli')">Mazeretli</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="empty" style="padding:20px"><i class="ti ti-users"></i><p>Öğrenci bulunamadı</p></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch"><span class="ct"><i class="ti ti-list"></i>{{ devTarih }} Kayıtları</span><button class="btn btn-s btn-sm" @click="loadDevList"><i class="ti ti-refresh"></i></button></div>
+          <div v-if="!devList.length" class="empty"><i class="ti ti-calendar-off"></i><p>Bu tarihte kayıt yok</p></div>
+          <div class="tw" v-else>
+            <table><thead><tr><th>Öğrenci</th><th>Durum</th><th>Not</th></tr></thead>
+              <tbody><tr v-for="d in devList" :key="d.id">
+                <td style="font-weight:500">{{ d.ogrenci_adi }} {{ d.ogrenci_soyad }} <span class="tag" style="margin-left:4px" v-if="d.ogrenci_turu==='proje'">Proje</span></td>
+                <td><span :class="'bdg '+(d.durum==='gelmedi'?'b-e':d.durum==='mazeretli'?'b-w':'b-ok')">{{ {geldi:'✓ Geldi',gelmedi:'✗ Gelmedi',mazeretli:'⚠ Mazeretli'}[d.durum]||d.durum }}</span></td>
+                <td style="color:var(--t3);font-size:12px">{{ d.not_||'—' }}</td>
+              </tr></tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+
+      <!-- ══════ ÖĞRETMEN NOTLARI ══════ -->
+      <template v-else-if="page==='notlar'">
+        <div class="card">
+          <div class="ch">
+            <span class="ct"><i class="ti ti-notes"></i>Öğretmen Notları</span>
+            <div style="display:flex;gap:8px">
+              <select v-model="notFilter" style="padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px">
+                <option value="">Tümü</option><option value="0">Okunmamış</option><option value="1">Okunmuş</option>
+              </select>
+              <button class="btn btn-p btn-sm" @click="notModal=true;resetNF()"><i class="ti ti-plus"></i>Not Ekle</button>
+            </div>
+          </div>
+          <div v-if="!filteredNotes.length" class="empty"><i class="ti ti-notes-off"></i><p>Not bulunamadı</p></div>
+          <div v-for="n in filteredNotes" :key="n.id" class="note-card" :style="n.is_read?'opacity:.6':''">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">
+              <span style="font-weight:700;font-size:13px">{{ n.ogrenci_adi }} {{ n.ogrenci_soyad }}</span>
+              <span :class="'bdg '+(n.onem==='acil'?'b-e':n.onem==='onemli'?'b-w':'b-g')">{{ n.onem==='acil'?'⚠ Acil':n.onem==='onemli'?'Önemli':'Normal' }}</span>
+              <span class="bdg b-i" style="text-transform:capitalize">{{ n.kategori }}</span>
+              <span v-if="n.is_read" class="bdg b-ok"><i class="ti ti-check"></i>Okundu</span>
+              <span style="font-size:11px;color:var(--t3);margin-left:auto">{{ n.olusturma?.slice(0,10) }}</span>
+              <button class="btn btn-d btn-xs" @click="deleteNote(n.id)"><i class="ti ti-trash"></i></button>
+            </div>
+            <div v-if="n.baslik" style="font-weight:600;font-size:13px;margin-bottom:3px">{{ n.baslik }}</div>
+            <div style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:6px">{{ n.icerik }}</div>
+            <div style="display:flex;gap:8px">
+              <span style="font-size:11px;color:var(--t3)">— {{ n.ogretmen_adi }} {{ n.ogretmen_soyad }}</span>
+              <button v-if="!n.is_read" class="btn btn-ok btn-xs" style="margin-left:auto" @click="markNoteRead(n.id)"><i class="ti ti-check"></i>Okundu İşaretle</button>
+            </div>
+          </div>
+        </div>
+        <div v-if="notModal" class="mbg" @click.self="notModal=false">
+          <div class="modal"><div class="mh"><span class="mt">Yeni Öğretmen Notu</span><button class="mc" @click="notModal=false">✕</button></div>
+            <div class="mbody">
+              <div v-if="fErr" class="al al-e"><i class="ti ti-alert-circle"></i>{{ fErr }}</div>
+              <div class="fg"><label>Öğrenci *</label><select v-model="nF.student_id"><option value="">— Seçin —</option><option v-for="s in students" :key="s.id" :value="s.id">{{ s.ad }} {{ s.soyad }}</option></select></div>
+              <div class="fg"><label>Başlık</label><input v-model="nF.baslik" placeholder="Opsiyonel"></div>
+              <div class="gc2">
+                <div class="fg"><label>Kategori</label><select v-model="nF.kategori"><option value="genel">Genel</option><option value="akademik">Akademik</option><option value="davranis">Davranış</option><option value="saglik">Sağlık</option><option value="aile">Aile</option></select></div>
+                <div class="fg"><label>Önem</label><select v-model="nF.onem"><option value="normal">Normal</option><option value="onemli">Önemli</option><option value="acil">⚠ Acil</option></select></div>
+              </div>
+              <div class="fg"><label>İçerik *</label><textarea v-model="nF.icerik" placeholder="Gözleminizi yazın…"></textarea></div>
+              <div v-if="nF.onem==='acil'" class="al al-w"><i class="ti ti-bell"></i>Acil notlarda veli otomatik WhatsApp ile bilgilendirilir.</div>
+            </div>
+            <div class="mf"><button class="btn btn-s" @click="notModal=false">İptal</button><button class="btn btn-p" @click="saveNote" :disabled="fSaving"><span v-if="fSaving" class="sp"></span><span v-else>Kaydet</span></button></div>
+          </div>
+        </div>
+      </template>
+
+      <!-- ══════ BİLDİRİMLER ══════ -->
+      <template v-else-if="page==='bildirim'">
+        <div class="g2">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <!-- Gönderme formu -->
+            <div class="card">
+              <div class="ch"><span class="ct"><i class="ti ti-send"></i>Bildirim Gönder</span></div>
+              <div class="cb">
+                <div class="fg"><label>Öğrenci</label><select v-model="bF.student_id"><option value="">— Seçin —</option><option v-for="s in students" :key="s.id" :value="s.id">{{ s.ad }} {{ s.soyad }}</option></select></div>
+                <div class="fg"><label>Kanal</label>
+                  <div style="display:flex;gap:8px">
+                    <button v-for="k in [{v:'whatsapp',l:'WhatsApp'},{v:'sms',l:'SMS'}]" :key="k.v" class="btn btn-sm" :class="bF.kanal===k.v?'btn-p':'btn-s'" style="flex:1" @click="bF.kanal=k.v">{{ k.l }}</button>
+                  </div>
+                </div>
+                <div class="fg"><label>Şablon</label>
+                  <select @change="applyTemplate($event.target.value)"><option value="">— Şablon Seçin —</option><option v-for="t in templates" :key="t.id" :value="t.id">{{ t.baslik }}</option></select>
+                </div>
+                <div class="fg">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+                    <label>Mesaj</label>
+                    <button class="copy-btn" @click="copyMsg"><i class="ti ti-copy"></i>{{ copied?'Kopyalandı!':'Metni Kopyala' }}</button>
+                  </div>
+                  <textarea v-model="bF.mesaj" style="min-height:110px" placeholder="Mesaj veya şablon seçin…"></textarea>
+                  <div style="font-size:11px;color:var(--t3);margin-top:3px">{{ bF.mesaj.length }} karakter · {{'{{'}}ad_soyad{{'}}'}} otomatik değiştirilir</div>
+                </div>
+                <button class="btn btn-p btn-fl" @click="sendBildirim" :disabled="bSending"><span v-if="bSending" class="sp"></span><i v-else class="ti ti-send"></i>{{ bSending?'Gönderiliyor…':'Gönder' }}</button>
+                <div style="margin-top:12px;padding:10px 12px;background:var(--bg);border-radius:var(--rs);font-size:12px">
+                  <div style="font-weight:700;color:var(--t2);margin-bottom:6px">📞 VELİ İLETİŞİM</div>
+                  <a :href="'https://wa.me/90'+okul.whatsapp.replace(/\D/g,'')" target="_blank" class="btn btn-wa btn-sm"><i class="ti ti-brand-whatsapp"></i>{{ okul.whatsapp }}</a>
+                  <a :href="'tel:'+okul.telefon" class="btn btn-s btn-sm" style="margin-left:6px"><i class="ti ti-phone"></i>{{ okul.telefon }}</a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Şablon Düzenleyici -->
+            <div class="card">
+              <div class="ch"><span class="ct"><i class="ti ti-template"></i>Şablon Düzenleyici</span><button class="btn btn-s btn-sm" @click="sablonModal=true;editSablon=null;sablonF={kod:'',baslik:'',icerik:''}"><i class="ti ti-plus"></i></button></div>
+              <div v-for="t in templates" :key="t.id" style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bdr)">
+                <div style="flex:1"><div style="font-weight:600;font-size:13px">{{ t.baslik }}</div><div style="font-size:11px;color:var(--t3)">{{ t.kod }}</div></div>
+                <button class="btn btn-s btn-xs" @click="openSablonEdit(t)"><i class="ti ti-edit"></i></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Log -->
+          <div class="card">
+            <div class="ch"><span class="ct"><i class="ti ti-history"></i>Son Bildirimler</span><button class="btn btn-s btn-sm" @click="loadBLog"><i class="ti ti-refresh"></i></button></div>
+            <div v-if="!bLog.length" class="empty"><i class="ti ti-bell-off"></i><p>Geçmiş yok</p></div>
+            <div style="max-height:580px;overflow-y:auto">
+              <div v-for="l in bLog" :key="l.id" style="padding:9px 14px;border-bottom:1px solid var(--bdr)">
+                <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:3px">
+                  <span style="font-weight:600;font-size:13px">{{ l.student?.ad }} {{ l.student?.soyad }}</span>
+                  <span :class="'bdg '+(l.durum==='sent'?'b-ok':l.durum==='manuel_gonderildi'?'b-i':l.durum==='failed'?'b-e':'b-w')">
+                    {{ l.durum==='sent'?'Gönderildi':l.durum==='manuel_gonderildi'?'Manuel Gönderildi':l.durum==='failed'?'Hata':'Bekliyor' }}
+                  </span>
+                  <span style="font-size:11px;color:var(--t3);margin-left:auto">{{ l.olusturma?.slice(0,16).replace('T',' ') }}</span>
+                </div>
+                <div style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">{{ l.mesaj?.slice(0,70) }}</div>
+                <div style="display:flex;gap:6px">
+                  <button v-if="l.durum==='failed'" class="btn btn-w btn-xs" @click="retryB(l.id)">Tekrar Gönder</button>
+                  <button v-if="l.durum==='pending'" class="btn btn-s btn-xs" @click="markManuel(l.id)"><i class="ti ti-check"></i>Manuel Gönderildi İşaretle</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Şablon Modal -->
+        <div v-if="sablonModal" class="mbg" @click.self="sablonModal=false">
+          <div class="modal">
+            <div class="mh"><span class="mt">{{ editSablon?'Şablon Düzenle':'Yeni Şablon' }}</span><button class="mc" @click="sablonModal=false">✕</button></div>
+            <div class="mbody">
+              <div class="al al-i"><i class="ti ti-info-circle"></i>Kullanılabilir değişkenler: <code>{{'{{'}}ad_soyad{{'}}'}}</code> <code>{{'{{'}}veli_adi{{'}}'}}</code> <code>{{'{{'}}okul{{'}}'}}</code> <code>{{'{{'}}telefon{{'}}'}}</code> <code>{{'{{'}}mesaj{{'}}'}}</code></div>
+              <div class="fg"><label>Şablon Kodu</label><input v-model="sablonF.kod" placeholder="Örn: devamsizlik" :disabled="!!editSablon"></div>
+              <div class="fg"><label>Başlık</label><input v-model="sablonF.baslik" placeholder="Şablon adı"></div>
+              <div class="fg"><label>İçerik</label><textarea v-model="sablonF.icerik" style="min-height:130px" placeholder="Mesaj içeriği…"></textarea></div>
+            </div>
+            <div class="mf">
+              <button class="btn btn-s" @click="sablonModal=false">İptal</button>
+              <button class="btn btn-p" @click="saveSablon" :disabled="fSaving"><span v-if="fSaving" class="sp"></span><span v-else>Kaydet</span></button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- ══════ RAPORLAR ══════ -->
+      <template v-else-if="page==='raporlar'">
+        <div class="card">
+          <div class="ch"><span class="ct"><i class="ti ti-chart-bar"></i>Devamsızlık Özeti</span>
+            <input v-model="rQ" placeholder="Filtrele…" style="padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px;width:180px">
+          </div>
+          <div v-if="!filteredRapor.length" class="empty"><i class="ti ti-chart-off"></i><p>Veri yok</p></div>
+          <div class="tw" v-else>
+            <table><thead><tr><th>Öğrenci</th><th>Tür</th><th>Toplam Gün</th><th>Gelmedi</th><th>Mazeretli</th><th>Oran</th><th>Durum</th></tr></thead>
+              <tbody><tr v-for="s in filteredRapor" :key="s.id">
+                <td style="font-weight:600">{{ s.ad }} {{ s.soyad }}<br><span style="font-size:11px;color:var(--t3)">{{ s.ogrenci_no }}</span></td>
+                <td><span :class="'bdg '+(s.ogrenci_turu==='proje'?'b-p':'b-i')">{{ s.ogrenci_turu==='proje'?'Proje':'Eğitim' }}</span></td>
+                <td>{{ s.toplam }}</td>
+                <td><span :class="'bdg '+(s.gelmedi>=4?'b-e':s.gelmedi>=3?'b-w':'b-g')">{{ s.gelmedi }}</span></td>
+                <td><span :class="'bdg '+(s.mazeretli>=4?'b-e':s.mazeretli>=3?'b-w':'b-g')">{{ s.mazeretli }}</span></td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <div class="pb" style="width:60px"><div class="pf" :style="{width:s.oran+'%',background:s.oran>=40?'var(--err)':s.oran>=20?'var(--warn)':'var(--acc)'}"></div></div>
+                    <span :style="{fontWeight:700,color:s.oran>=40?'var(--err)':s.oran>=20?'var(--warn)':'var(--ok)'}">%{{ s.oran }}</span>
+                  </div>
+                </td>
+                <td><span :class="'bdg '+(s.oran>=40?'b-e':s.oran>=20?'b-w':'b-ok')">{{ s.oran>=40?'Kritik':s.oran>=20?'Uyarı':'Normal' }}</span></td>
+              </tr></tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+
+      <!-- ══════ KULLANICILAR ══════ -->
+      <template v-else-if="page==='kullanicilar'">
+        <div class="card">
+          <div class="ch"><span class="ct"><i class="ti ti-users-group"></i>Kullanıcılar ({{ filteredUsers.length }})</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <select v-model="uRolFilter" style="padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px">
+                <option value="">Tümü</option><option value="admin">Admin</option><option value="ogretmen">Öğretmen</option><option value="veli">Veli</option>
+              </select>
+              <button class="btn btn-p btn-sm" @click="openUModal()"><i class="ti ti-plus"></i>Ekle</button>
+            </div>
+          </div>
+          <div class="tw">
+            <table><thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Telefon</th><th>Rol</th><th>Durum</th><th>Son Giriş</th><th></th></tr></thead>
+              <tbody>
+                <tr v-if="!filteredUsers.length"><td colspan="7"><div class="empty"><i class="ti ti-inbox"></i><p>Kullanıcı yok</p></div></td></tr>
+                <tr v-for="u in filteredUsers" :key="u.id">
+                  <td style="font-weight:600">{{ u.ad }} {{ u.soyad }}</td>
+                  <td style="font-size:12px;color:var(--t2)">{{ u.email }}</td>
+                  <td style="font-size:12px;color:var(--t2)">{{ u.telefon||'—' }}</td>
+                  <td><span :class="'bdg '+(u.rol==='admin'?'b-e':u.rol==='ogretmen'?'b-i':u.rol==='veli'?'b-ok':'b-g')">{{ {admin:'Admin',ogretmen:'Öğretmen',veli:'Veli',muhasebe:'Muhasebe'}[u.rol]||u.rol }}</span></td>
+                  <td><span :class="'bdg '+(u.aktif?'b-ok':'b-g')">{{ u.aktif?'Aktif':'Pasif' }}</span></td>
+                  <td style="font-size:11px;color:var(--t3)">{{ u.son_giris?.slice(0,16).replace('T',' ')||'—' }}</td>
+                  <td>
+                    <div style="display:flex;gap:4px;flex-wrap:wrap">
+                      <button class="btn btn-s btn-xs" @click="openUModal(u)" title="Düzenle"><i class="ti ti-edit"></i></button>
+                      <button v-if="u.aktif" class="btn btn-w btn-xs" @click="toggleUserAktif(u)" title="Devre Dışı"><i class="ti ti-user-off"></i>Deaktif</button>
+                      <button v-else class="btn btn-ok btn-xs" @click="toggleUserAktif(u)" title="Aktif Et"><i class="ti ti-user-check"></i>Aktif Et</button>
+                      <button v-if="isAdmin&&u.id!==user.id" class="btn btn-d btn-xs" @click="deleteUser(u)" title="Sil"><i class="ti ti-trash"></i>Sil</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div v-if="uModal" class="mbg" @click.self="uModal=false">
+          <div class="modal">
+            <div class="mh"><span class="mt">{{ editU?'Kullanıcı Düzenle':'Yeni Kullanıcı' }}</span><button class="mc" @click="uModal=false">✕</button></div>
+            <div class="mbody">
+              <div v-if="fErr" class="al al-e"><i class="ti ti-alert-circle"></i>{{ fErr }}</div>
+              <div class="gc2"><div class="fg"><label>Ad *</label><input v-model="uF.ad"></div><div class="fg"><label>Soyad *</label><input v-model="uF.soyad"></div></div>
+              <div class="fg"><label>E-posta *</label><input type="email" v-model="uF.email"></div>
+              <div class="gc2">
+                <div class="fg"><label>Telefon</label><input v-model="uF.telefon" placeholder="05xx"></div>
+                <div class="fg"><label>Rol *</label><select v-model="uF.rol"><option value="admin">Admin</option><option value="ogretmen">Öğretmen</option><option value="veli">Veli</option><option value="muhasebe">Muhasebe</option></select></div>
+              </div>
+              <hr>
+              <div class="fg"><label>{{ editU?'Yeni Şifre (boş=değişmez)':'Şifre *' }}</label><input type="password" v-model="uF.sifre" :placeholder="editU?'Değiştirmek için yazın':'Min 8 karakter'"></div>
+              <div v-if="uF.sifre" class="fg"><label>Şifre Tekrar</label><input type="password" v-model="uF.sifre2"></div>
+            </div>
+            <div class="mf"><button class="btn btn-s" @click="uModal=false">İptal</button><button class="btn btn-p" @click="saveUser" :disabled="fSaving"><span v-if="fSaving" class="sp"></span><span v-else>Kaydet</span></button></div>
+          </div>
+        </div>
+      </template>
+
+      <!-- ══════ AYARLAR ══════ -->
+      <template v-else-if="page==='ayarlar'">
+        <div class="g2">
+          <!-- Kurum Bilgileri -->
+          <div class="card">
+            <div class="ch"><span class="ct"><i class="ti ti-building"></i>Kurum Bilgileri</span></div>
+            <div class="cb">
+              <div class="fg"><label>Kurum Adı</label><input v-model="ayarF.okul_adi"></div>
+              <div class="gc2">
+                <div class="fg"><label>Telefon</label><input v-model="ayarF.telefon"></div>
+                <div class="fg"><label>WhatsApp</label><input v-model="ayarF.whatsapp"></div>
+              </div>
+              <div class="fg"><label>E-posta</label><input type="email" v-model="ayarF.email"></div>
+              <div class="fg"><label>Adres</label><textarea v-model="ayarF.adres" style="min-height:60px"></textarea></div>
+              <hr>
+              <div class="sec">Devamsızlık Limitleri</div>
+              <div class="gc3">
+                <div class="fg"><label>Normal Hak (gün)</label><input type="number" v-model="ayarF.devamsizlik_limit_normal" min="1" max="20"></div>
+                <div class="fg"><label>Mazeretli Hak (gün)</label><input type="number" v-model="ayarF.devamsizlik_limit_mazeret" min="1" max="20"></div>
+                <div class="fg"><label>Uyarı Eşiği (gün)</label><input type="number" v-model="ayarF.devamsizlik_uyari_gun" min="1" max="10"></div>
+              </div>
+              <button class="btn btn-p btn-fl" style="margin-top:6px" @click="saveAyarlar" :disabled="fSaving"><span v-if="fSaving" class="sp"></span><i v-else class="ti ti-device-floppy"></i>Kaydet</button>
+            </div>
+          </div>
+
+          <!-- Sınıf Yönetimi -->
+          <div class="card">
+            <div class="ch"><span class="ct"><i class="ti ti-layout-columns"></i>Sınıf / Bölüm Yönetimi</span>
+              <button class="btn btn-p btn-sm" @click="sinifModal=true;editSinif=null;sinifF={ad:'',donem:'2024-2025',kapasite:40}"><i class="ti ti-plus"></i>Yeni</button>
+            </div>
+            <div v-if="!siniflar.length" class="empty" style="padding:20px"><i class="ti ti-layout"></i><p>Sınıf yok</p></div>
+            <div v-for="s in siniflar" :key="s.id" style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bdr)">
+              <div style="width:14px;height:14px;border-radius:50%;flex-shrink:0" :style="{background:s.renk||'#4f46e5'}"></div>
+              <div style="flex:1">
+                <div style="font-weight:600;font-size:13px">{{ s.ad }}</div>
+                <div style="font-size:11px;color:var(--t3)">{{ s.donem }} · {{ s.ogrenci_sayisi||0 }} öğrenci</div>
+              </div>
+              <div style="display:flex;gap:5px">
+                <button class="btn btn-s btn-xs" @click="openSinifEdit(s)"><i class="ti ti-edit"></i></button>
+                <button class="btn btn-d btn-xs" @click="deleteSinif(s)"><i class="ti ti-trash"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sınıf Modal -->
+        <div v-if="sinifModal" class="mbg" @click.self="sinifModal=false">
+          <div class="modal">
+            <div class="mh"><span class="mt">{{ editSinif?'Sınıf Düzenle':'Yeni Sınıf' }}</span><button class="mc" @click="sinifModal=false">✕</button></div>
+            <div class="mbody">
+              <div class="fg"><label>Sınıf Adı *</label><input v-model="sinifF.ad" placeholder="Örn: GRAFİK, ROBOTİK"></div>
+              <div class="gc2">
+                <div class="fg"><label>Dönem</label><input v-model="sinifF.donem" placeholder="2024-2025"></div>
+                <div class="fg"><label>Kapasite</label><input type="number" v-model="sinifF.kapasite" min="1" max="200"></div>
+              </div>
+              <div class="fg"><label>Renk</label><input type="color" v-model="sinifF.renk" style="height:40px;cursor:pointer"></div>
+            </div>
+            <div class="mf"><button class="btn btn-s" @click="sinifModal=false">İptal</button><button class="btn btn-p" @click="saveSinif" :disabled="fSaving"><span v-if="fSaving" class="sp"></span><span v-else>Kaydet</span></button></div>
+          </div>
+        </div>
+      </template>
+
+    </div><!-- /cnt -->
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- Toastlar -->
+<div class="tw-wrap">
+  <div v-for="t in toasts" :key="t.id" :class="'tw-item tw-'+t.type"><i :class="'ti '+(t.type==='ok'?'ti-check':t.type==='e'?'ti-x':'ti-info-circle')"></i>{{ t.msg }}</div>
+</div>
+</div>
+
+<script>
+const {createApp,ref,computed,watch,onMounted}=Vue;
+createApp({
+  setup(){
+    const API=location.origin+'/api.php';
+    const token=ref(localStorage.getItem('okul_token')||'');
+    const user=ref(JSON.parse(localStorage.getItem('okul_user')||'{}'));
+    const loggedIn=computed(()=>!!token.value);
+    const isAdmin=computed(()=>user.value?.rol==='admin');
+    const initials=computed(()=>((user.value?.ad||'')[0]+(user.value?.soyad||'')[0]||'?').toUpperCase());
+    const rolStr=computed(()=>({admin:'Yönetici',ogretmen:'Öğretmen',veli:'Veli',muhasebe:'Muhasebe'}[user.value?.rol]||''));
+
+    const http=axios.create({baseURL:API,headers:{'Accept':'application/json','Content-Type':'application/json'}});
+    http.interceptors.request.use(cfg=>{
+      const tk=token.value||localStorage.getItem('okul_token');
+      if(tk){cfg.headers['Authorization']='Bearer '+tk;cfg.headers['X-Token']=tk;}
+      return cfg;
+    });
+    http.interceptors.response.use(r=>r,e=>{
+      const msg=e.response?.data?.message||'';
+      if(e.response?.status===401&&(msg.includes('Oturum')||msg.includes('token')||msg.includes('süresi')))doLogout();
+      return Promise.reject(e);
+    });
+    function api(m,p,d=null,params=null){const c={method:m,url:'/'+p.replace(/^\//,'')};if(d)c.data=d;if(params)c.params=params;return http(c);}
+
+    const toasts=ref([]);
+    function toast(msg,type='ok'){const id=Date.now()+Math.random();toasts.value.push({id,msg,type});setTimeout(()=>{toasts.value=toasts.value.filter(t=>t.id!==id)},3500);}
+
+    const lf=ref({email:'',sifre:''});const lLoad=ref(false);const loginErr=ref('');
+    async function doLogin(){
+      if(!lf.value.email||!lf.value.sifre){loginErr.value='E-posta ve şifre gerekli';return;}
+      lLoad.value=true;loginErr.value='';
+      try{
+        const {data}=await http.post('/auth/giris',{...lf.value,platform:'web'});
+        token.value=data.data.token;user.value=data.data.user;
+        localStorage.setItem('okul_token',token.value);localStorage.setItem('okul_user',JSON.stringify(user.value));
+        document.cookie=`okul_token=${token.value};path=/;max-age=86400;SameSite=Lax`;
+        await loadAll();
+      }catch(e){loginErr.value=e.response?.data?.message||'Bağlantı hatası';}
+      lLoad.value=false;
+    }
+    function doLogout(){http.post('/auth/cikis').catch(()=>{});token.value='';user.value={};localStorage.removeItem('okul_token');localStorage.removeItem('okul_user');document.cookie='okul_token=;path=/;max-age=0';}
+
+    const page=ref('dashboard');const sbOpen=ref(false);const loading=ref(false);const ready=ref(false);const failedC=ref(0);
+    const pTitles={dashboard:'Dashboard',ogrenciler:'Öğrenciler',devamsizlik:'Devamsızlık',notlar:'Öğretmen Notları',bildirim:'Bildirimler',raporlar:'Raporlar',kullanicilar:'Kullanıcı Yönetimi',ayarlar:'Ayarlar'};
+    const pTitle=computed(()=>pTitles[page.value]||'Panel');
+    const navItems=computed(()=>[
+      {k:'dashboard',l:'Dashboard',i:'ti-layout-dashboard',b:0},
+      {k:'ogrenciler',l:'Öğrenciler',i:'ti-users',b:0},
+      {k:'devamsizlik',l:'Devamsızlık',i:'ti-calendar-check',b:0},
+      {k:'notlar',l:'Öğretmen Notları',i:'ti-notes',b:okunmamisNotlar.value.length},
+      {k:'bildirim',l:'Bildirimler',i:'ti-brand-whatsapp',b:failedC.value},
+      {k:'raporlar',l:'Raporlar',i:'ti-chart-bar',b:0},
+      {k:'kullanicilar',l:'Kullanıcılar',i:'ti-users-group',b:0},
+      {k:'ayarlar',l:'Ayarlar',i:'ti-settings',b:0},
+    ]);
+    function goTo(p){page.value=p;sbOpen.value=false;window.scrollTo(0,0);}
+
+    // Veriler
+    const students=ref([]);const siniflar=ref([]);const ogretmenler=ref([]);
+    const stats=ref({});const kritikList=ref([]);const okunmamisNotlar=ref([]);
+    const okul=ref({adi:'Kurum',telefon:'04622234466',whatsapp:'04622234466',devamsizlik_limit_normal:4,devamsizlik_limit_mazeret:4,devamsizlik_uyari_gun:3});
+
+    async function loadAll(){
+      loading.value=true;
+      try{
+        const [sg,sn,dash,og]=await Promise.allSettled([
+          api('GET','ogrenciler'),api('GET','siniflar'),api('GET','dashboard'),api('GET','kullanicilar',null,{rol:'ogretmen'})
+        ]);
+        if(sg.status==='fulfilled')students.value=sg.value.data.data||[];
+        if(sn.status==='fulfilled')siniflar.value=sn.value.data.data||[];
+        if(og.status==='fulfilled')ogretmenler.value=og.value.data.data||[];
+        if(dash.status==='fulfilled'){
+          const d=dash.value.data.data;
+          stats.value=d.istatistik||{};
+          kritikList.value=d.kritik_devamsizlik||[];
+          okunmamisNotlar.value=d.okunmamis_notlar||[];
+          failedC.value=d.istatistik?.basarisiz_bildirim||0;
+          if(d.okul)okul.value={...okul.value,...d.okul};
+        }
+        ready.value=true;
+      }catch(e){toast('Veri yüklenemedi','e');}
+      loading.value=false;
+    }
+    async function reload(){await loadAll();loadCalendar();toast('Yenilendi');}
+
+    // Takvim
+    const calYear=ref(new Date().getFullYear());const calMonth=ref(new Date().getMonth()+1);const calData=ref({});const hovDay=ref(null);
+    const AYLAR=['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+    const calMonthName=computed(()=>AYLAR[calMonth.value]);
+    function daysInMonth(y,m){return new Date(y,m,0).getDate();}
+    const calDays=computed(()=>{
+      const y=calYear.value,m=calMonth.value;
+      const first=new Date(y,m-1,1).getDay();
+      const offset=first===0?6:first-1;
+      const days=[];
+      for(let i=0;i<offset;i++)days.push(null);
+      for(let d=1;d<=daysInMonth(y,m);d++)days.push(d);
+      return days;
+    });
+    function dayKey(d){const y=calYear.value,m=String(calMonth.value).padStart(2,'0'),dd=String(d).padStart(2,'0');return `${y}-${m}-${dd}`;}
+    function isToday(d){if(!d)return false;return dayKey(d)===new Date().toISOString().slice(0,10);}
+    async function loadCalendar(){
+      try{const r=await api('GET','dashboard/takvim',null,{yil:calYear.value,ay:calMonth.value});calData.value=r.data.data||{};}catch(e){}
+    }
+    function prevMonth(){if(calMonth.value===1){calMonth.value=12;calYear.value--;}else calMonth.value--;loadCalendar();}
+    function nextMonth(){if(calMonth.value===12){calMonth.value=1;calYear.value++;}else calMonth.value++;loadCalendar();}
+
+    // Öğrenciler
+    const sQ=ref('');const sTur=ref('');const sSort=ref('soyad');const sDir=ref('ASC');
+    const oModal=ref(false);const editO=ref(null);const oF=ref({});const fErr=ref('');const fSaving=ref(false);
+    function toggleSort(s){if(sSort.value===s){sDir.value=sDir.value==='ASC'?'DESC':'ASC';}else{sSort.value=s;sDir.value='ASC';}}
+    const filteredStudents=computed(()=>{
+      let list=students.value.filter(s=>!sTur.value||s.ogrenci_turu===sTur.value);
+      const q=sQ.value.toLowerCase();
+      if(q)list=list.filter(s=>(s.ad+' '+s.soyad+' '+(s.tc_no||'')+' '+(s.ogrenci_no||'')+' '+(s.kurum_no||'')).toLowerCase().includes(q));
+      return list.sort((a,b)=>{
+        let av=a[sSort.value]||'',bv=b[sSort.value]||'';
+        if(typeof av==='number'||typeof bv==='number'){av=parseFloat(av)||0;bv=parseFloat(bv)||0;return sDir.value==='ASC'?av-bv:bv-av;}
+        return sDir.value==='ASC'?String(av).localeCompare(String(bv),'tr'):String(bv).localeCompare(String(av),'tr');
+      });
+    });
+    function openOModal(s=null){
+      editO.value=s;
+      oF.value=s?{...s}:{ogrenci_turu:'egitim',danisman_id:'',sinif_id:'',tc_no:'',kurum_no:'',ad:'',soyad:'',dogum_tarihi:'',cinsiyet:'',okul_adi:'',baba_adi:'',baba_tel:'',anne_adi:'',anne_tel:'',bildirim_tercih:'baba',acil_tel:'',saglik_notu:'',adres:'',yarisma_turu:'',yarisma_alani:'',odeme_durumu:'bekliyor',kayit_tutari:0,odeme_notu:''};
+      fErr.value='';oModal.value=true;
+    }
+    async function saveOgrenci(){
+      if(!oF.value.ad||!oF.value.soyad){fErr.value='Ad ve soyad gerekli';return;}
+      fSaving.value=true;fErr.value='';
+      try{
+        if(editO.value)await api('PUT','ogrenciler/'+editO.value.id,oF.value);
+        else await api('POST','ogrenciler',oF.value);
+        oModal.value=false;await loadAll();toast(editO.value?'Güncellendi':'Öğrenci eklendi');
+      }catch(e){fErr.value=e.response?.data?.message||'Kayıt hatası';}
+      fSaving.value=false;
+    }
+
+    // Devamsızlık
+    const devTarih=ref(new Date().toISOString().slice(0,10));const devSinif=ref('');const devState=ref({});const devSaving=ref(false);const devList=ref([]);
+    const devStudents=computed(()=>{let l=students.value.filter(s=>s.aktif!==false&&s.aktif!==0);if(devSinif.value)l=l.filter(s=>s.sinif_id==devSinif.value);return l;});
+    const devGelmediC=computed(()=>Object.values(devState.value).filter(v=>v==='gelmedi').length);
+    const devMazC=computed(()=>Object.values(devState.value).filter(v=>v==='mazeretli').length);
+    function setDev(id,d){devState.value={...devState.value,[id]:d};}
+    function hepsiniGeldi(){const s={};devStudents.value.forEach(st=>{s[st.id]='geldi';});devState.value=s;}
+    async function loadDevList(){try{const r=await api('GET','devamsizlik',null,{tarih:devTarih.value});devList.value=r.data.data?.data||[];}catch(e){}}
+    async function saveDevamsizlik(){
+      devSaving.value=true;
+      try{
+        const kayitlar=devStudents.value.map(s=>({student_id:s.id,durum:devState.value[s.id]||'geldi'}));
+        const r=await api('POST','devamsizlik/toplu',{tarih:devTarih.value,kayitlar});
+        const bil=r.data.data?.bildirim_sayisi||0;
+        toast(`Kaydedildi${bil>0?`. ${bil} veli bilgilendirildi`:'.'}`);
+        await loadDevList();await loadAll();
+      }catch(e){toast(e.response?.data?.message||'Hata','e');}
+      devSaving.value=false;
+    }
+    watch(devTarih,()=>loadDevList());
+
+    // Öğretmen Notları
+    const teacherNotes=ref([]);const notModal=ref(false);const nF=ref({});const noteDetail=ref(null);const notFilter=ref('');
+    const filteredNotes=computed(()=>notFilter.value===''?teacherNotes.value:teacherNotes.value.filter(n=>String(n.is_read)===notFilter.value));
+    function resetNF(){nF.value={student_id:'',baslik:'',icerik:'',kategori:'genel',onem:'normal',veliye_gorunsun:true};fErr.value='';}
+    async function loadNotes(){try{const r=await api('GET','ogretmen-notlari');teacherNotes.value=r.data.data?.data||r.data.data||[];}catch(e){}}
+    async function saveNote(){
+      if(!nF.value.student_id||!nF.value.icerik){fErr.value='Öğrenci ve içerik gerekli';return;}
+      fSaving.value=true;fErr.value='';
+      try{await api('POST','ogretmen-notlari',nF.value);notModal.value=false;await loadNotes();await loadAll();toast('Not eklendi');}
+      catch(e){fErr.value=e.response?.data?.message||'Hata';}
+      fSaving.value=false;
+    }
+    async function markNoteRead(id){
+      try{await api('PUT',`ogretmen-notlari/${id}/okundu`);await loadNotes();await loadAll();toast('Okundu olarak işaretlendi');}
+      catch(e){toast('Hata','e');}
+    }
+    async function deleteNote(id){
+      if(!confirm('Notu silmek istiyor musunuz?'))return;
+      try{await api('DELETE','ogretmen-notlari/'+id);await loadNotes();toast('Silindi');}catch(e){toast('Silinemedi','e');}
+    }
+
+    // Bildirimler
+    const bLog=ref([]);const bF=ref({student_id:'',mesaj:'',kanal:'whatsapp',sablon_tipi:'genel'});const bSending=ref(false);const copied=ref(false);
+    const templates=ref([]);const sablonModal=ref(false);const editSablon=ref(null);const sablonF=ref({kod:'',baslik:'',icerik:''});
+    async function loadBLog(){try{const r=await api('GET','bildirim/log',null,{per_page:60});bLog.value=(r.data.data?.data||[]).map(l=>({...l,student:{id:l.student_id,ad:l.student_ad,soyad:l.student_soyad}}));failedC.value=bLog.value.filter(l=>l.durum==='failed').length;}catch(e){}}
+    async function loadTemplates(){try{const r=await api('GET','sablonlar');templates.value=r.data.data||[];}catch(e){}}
+    function applyTemplate(id){const t=templates.value.find(t=>t.id==id);if(t){bF.value.mesaj=t.icerik;bF.value.sablon_tipi=t.kod;}}
+    async function sendBildirim(){
+      if(!bF.value.student_id||!bF.value.mesaj){toast('Öğrenci ve mesaj gerekli','w');return;}
+      bSending.value=true;
+      try{await api('POST','bildirim/gonder',bF.value);toast('Gönderildi');bF.value.mesaj='';bF.value.student_id='';await loadBLog();}
+      catch(e){toast(e.response?.data?.message||'Hata','e');}
+      bSending.value=false;
+    }
+    async function retryB(id){try{await api('POST','bildirim/tekrar-gonder',{log_id:id});toast('Yeniden gönderildi');await loadBLog();}catch(e){toast('Hata','e');}}
+    async function markManuel(id){try{await api('PUT',`bildirim/manuel/${id}`);toast('Manuel gönderildi olarak işaretlendi');await loadBLog();}catch(e){toast('Hata','e');}}
+    async function copyMsg(){
+      if(!bF.value.mesaj){toast('Kopyalanacak mesaj yok','w');return;}
+      try{await navigator.clipboard.writeText(bF.value.mesaj);copied.value=true;toast('Mesaj kopyalandı');setTimeout(()=>copied.value=false,2000);}
+      catch(e){toast('Kopyalanamadı — tarayıcı izni gerekli','w');}
+    }
+    function openSablonEdit(t){editSablon.value=t;sablonF.value={kod:t.kod,baslik:t.baslik,icerik:t.icerik};sablonModal.value=true;}
+    async function saveSablon(){
+      if(!sablonF.value.baslik||!sablonF.value.icerik){toast('Başlık ve içerik gerekli','w');return;}
+      fSaving.value=true;
+      try{
+        if(editSablon.value)await api('PUT','sablonlar/'+editSablon.value.id,sablonF.value);
+        else await api('POST','sablonlar',sablonF.value);
+        sablonModal.value=false;await loadTemplates();toast('Şablon kaydedildi');
+      }catch(e){toast(e.response?.data?.message||'Hata','e');}
+      fSaving.value=false;
+    }
+
+    // Raporlar
+    const raporData=ref([]);const rQ=ref('');
+    const filteredRapor=computed(()=>{const q=rQ.value.toLowerCase();return raporData.value.filter(s=>!q||(s.ad+' '+s.soyad).toLowerCase().includes(q));});
+    async function loadRapor(){try{const r=await api('GET','raporlar/devamsizlik-ozet');raporData.value=r.data.data||[];}catch(e){}}
+
+    // Kullanıcılar
+    const allUsers=ref([]);const uRolFilter=ref('');const uModal=ref(false);const editU=ref(null);const uF=ref({});
+    const filteredUsers=computed(()=>allUsers.value.filter(u=>!uRolFilter.value||u.rol===uRolFilter.value));
+    async function loadUsers(){try{const r=await api('GET','kullanicilar');allUsers.value=r.data.data||[];}catch(e){toast('Kullanıcılar yüklenemedi','e');}}
+    function openUModal(u=null){editU.value=u;uF.value=u?{...u,sifre:'',sifre2:''}:{ad:'',soyad:'',email:'',telefon:'',rol:'ogretmen',sifre:'',sifre2:''};fErr.value='';uModal.value=true;}
+    async function saveUser(){
+      if(!uF.value.ad||!uF.value.soyad||!uF.value.email){fErr.value='Ad, soyad ve e-posta gerekli';return;}
+      if(!editU.value&&!uF.value.sifre){fErr.value='Şifre gerekli';return;}
+      if(uF.value.sifre&&uF.value.sifre!==uF.value.sifre2){fErr.value='Şifreler eşleşmiyor';return;}
+      if(uF.value.sifre&&uF.value.sifre.length<8){fErr.value='Şifre en az 8 karakter';return;}
+      fSaving.value=true;fErr.value='';
+      const payload={...uF.value};delete payload.sifre2;if(!payload.sifre)delete payload.sifre;
+      try{
+        if(editU.value)await api('PUT','kullanicilar/'+editU.value.id,payload);
+        else await api('POST','kullanicilar',payload);
+        uModal.value=false;await loadUsers();await loadAll();toast(editU.value?'Güncellendi':'Kullanıcı eklendi');
+      }catch(e){fErr.value=e.response?.data?.message||'Hata';}
+      fSaving.value=false;
+    }
+    async function toggleUserAktif(u){
+      try{await api('PUT',`kullanicilar/${u.id}/toggle-aktif`);await loadUsers();toast(u.aktif?'Deaktif edildi':'Aktif edildi');}
+      catch(e){toast('Hata','e');}
+    }
+    async function deleteUser(u){
+      if(!confirm(`"${u.ad} ${u.soyad}" kullanıcısı kalıcı olarak silinsin mi?\nBu işlem geri alınamaz!`))return;
+      try{await api('DELETE','kullanicilar/'+u.id);await loadUsers();toast('Kullanıcı silindi');}
+      catch(e){toast(e.response?.data?.message||'Silinemedi','e');}
+    }
+
+    // Ayarlar
+    const ayarF=ref({...okul.value});const sinifModal=ref(false);const editSinif=ref(null);const sinifF=ref({ad:'',donem:'2024-2025',kapasite:40,renk:'#4f46e5'});
+    watch(okul,(v)=>{ayarF.value={...v};});
+    async function saveAyarlar(){
+      fSaving.value=true;
+      try{await api('PUT','ayarlar','',ayarF.value);okul.value={...ayarF.value};toast('Ayarlar kaydedildi');}
+      catch(e){toast('Kaydedilemedi','e');}
+      fSaving.value=false;
+    }
+    function openSinifEdit(s){editSinif.value=s;sinifF.value={ad:s.ad,donem:s.donem,kapasite:s.kapasite,renk:s.renk||'#4f46e5'};sinifModal.value=true;}
+    async function saveSinif(){
+      if(!sinifF.value.ad){toast('Sınıf adı gerekli','w');return;}
+      fSaving.value=true;
+      try{
+        if(editSinif.value)await api('PUT','siniflar/'+editSinif.value.id,sinifF.value);
+        else await api('POST','siniflar',sinifF.value);
+        sinifModal.value=false;await loadAll();toast(editSinif.value?'Sınıf güncellendi':'Sınıf eklendi');
+      }catch(e){toast(e.response?.data?.message||'Hata','e');}
+      fSaving.value=false;
+    }
+    async function deleteSinif(s){
+      if(!confirm(`"${s.ad}" sınıfı silinsin mi? İçinde öğrenci varsa silinemez.`))return;
+      try{await api('DELETE','siniflar/'+s.id);await loadAll();toast('Sınıf silindi');}
+      catch(e){toast(e.response?.data?.message||'Silinemedi','e');}
+    }
+
+    // Sayfa değişiminde yükle
+    watch(page,async p=>{
+      if(p==='notlar')await loadNotes();
+      if(p==='bildirim'){await loadBLog();await loadTemplates();}
+      if(p==='devamsizlik')await loadDevList();
+      if(p==='raporlar')await loadRapor();
+      if(p==='kullanicilar')await loadUsers();
+      if(p==='ayarlar')await loadAll();
+    });
+
+    onMounted(()=>{if(token.value){loadAll();loadCalendar();}});
+
+    return{
+      loggedIn,user,initials,rolStr,isAdmin,lf,lLoad,loginErr,doLogin,doLogout,
+      page,pTitle,navItems,sbOpen,goTo,loading,ready,failedC,reload,
+      stats,kritikList,okunmamisNotlar,okul,
+      calYear,calMonth,calMonthName,calDays,calData,hovDay,dayKey,isToday,prevMonth,nextMonth,
+      students,siniflar,ogretmenler,sQ,sTur,sSort,sDir,filteredStudents,toggleSort,
+      oModal,editO,oF,fErr,fSaving,openOModal,saveOgrenci,
+      devTarih,devSinif,devState,devSaving,devList,devStudents,devGelmediC,devMazC,setDev,hepsiniGeldi,loadDevList,saveDevamsizlik,
+      teacherNotes,filteredNotes,notModal,nF,notFilter,noteDetail,resetNF,saveNote,markNoteRead,deleteNote,
+      bLog,bF,bSending,copied,templates,sablonModal,editSablon,sablonF,loadBLog,applyTemplate,sendBildirim,retryB,markManuel,copyMsg,openSablonEdit,saveSablon,
+      raporData,rQ,filteredRapor,
+      allUsers,uRolFilter,filteredUsers,uModal,editU,uF,openUModal,saveUser,toggleUserAktif,deleteUser,
+      ayarF,sinifModal,editSinif,sinifF,saveAyarlar,openSinifEdit,saveSinif,deleteSinif,
+      toasts,toast,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
