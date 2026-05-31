@@ -358,16 +358,37 @@ a{color:var(--acc);text-decoration:none}
 
       <!-- ══════ ÖĞRENCİLER ══════ -->
       <template v-else-if="page==='ogrenciler'">
+
+        <!-- Sekme: Aktif / Mezunlar -->
+        <div style="display:flex;gap:6px;margin-bottom:12px">
+          <button :class="'btn btn-sm '+(oGrup==='aktif'?'btn-p':'btn-s')" @click="oGrup='aktif';loadStudentsByGrup()"><i class="ti ti-users"></i>Aktif Öğrenciler</button>
+          <button :class="'btn btn-sm '+(oGrup==='mezun'?'btn-p':'btn-s')" @click="oGrup='mezun';loadStudentsByGrup()"><i class="ti ti-school"></i>Mezunlar</button>
+        </div>
+
         <div class="card">
           <div class="ch">
-            <span class="ct"><i class="ti ti-users"></i>Öğrenciler ({{ filteredStudents.length }})</span>
+            <span class="ct"><i class="ti ti-users"></i>
+              <span v-if="oGrup==='aktif'">Öğrenciler ({{ filteredStudents.length }})</span>
+              <span v-else>Mezunlar ({{ filteredStudents.length }})</span>
+            </span>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-              <!-- Tür filtresi -->
-              <div style="display:flex;gap:4px">
+              <!-- Tür filtresi (sadece aktif listede) -->
+              <div v-if="oGrup==='aktif'" style="display:flex;gap:4px">
                 <button v-for="t in [{v:'',l:'Tümü'},{v:'egitim',l:'🎓 Eğitim'},{v:'proje',l:'🔬 Proje'}]" :key="t.v" :class="'sort-btn'+(sTur===t.v?' act':'')" @click="sTur=t.v">{{ t.l }}</button>
               </div>
+              <!-- Mezun yıl filtresi -->
+              <select v-if="oGrup==='mezun'" v-model="mezunYilFilter" style="padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px">
+                <option value="">Tüm Yıllar</option>
+                <option v-for="y in mezunYillar" :key="y" :value="y">{{ y }}</option>
+              </select>
               <input v-model="sQ" placeholder="Ara…" style="padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px;width:160px">
-              <button v-if="isAdmin" class="btn btn-p btn-sm" @click="openOModal()"><i class="ti ti-plus"></i>Yeni</button>
+              <!-- Seçili mezun yap -->
+              <button v-if="isAdmin&&oGrup==='aktif'&&selectedStudents.length>0" class="btn btn-w btn-sm" @click="mezunYapModal=true"><i class="ti ti-school"></i>Seçilenleri Mezun Yap ({{ selectedStudents.length }})</button>
+              <!-- Seçili geri al -->
+              <button v-if="isAdmin&&oGrup==='mezun'&&selectedStudents.length>0" class="btn btn-s btn-sm" @click="mezunuGeriAl()"><i class="ti ti-arrow-back-up"></i>Geri Al ({{ selectedStudents.length }})</button>
+              <!-- Çıktı al -->
+              <button class="btn btn-ok btn-sm" @click="printModal=true"><i class="ti ti-printer"></i>Çıktı Al</button>
+              <button v-if="isAdmin&&oGrup==='aktif'" class="btn btn-p btn-sm" @click="openOModal()"><i class="ti ti-plus"></i>Yeni</button>
             </div>
           </div>
           <!-- Sıralama -->
@@ -381,14 +402,17 @@ a{color:var(--acc);text-decoration:none}
           <div class="tw">
             <table>
               <thead><tr>
+                <th v-if="isAdmin"><input type="checkbox" @change="toggleSelectAll($event)" style="cursor:pointer"></th>
                 <th>No / Kurum No</th><th>Ad Soyad</th><th>Tür</th><th>Sınıf</th>
                 <th>TC</th><th>Okul</th><th>Baba / Anne</th>
-                <th>Devamsızlık</th><th>Ödeme</th><th>Yarışma</th>
+                <th v-if="oGrup==='aktif'">Devamsızlık</th><th v-if="oGrup==='aktif'">Ödeme</th><th v-if="oGrup==='aktif'">Yarışma</th>
+                <th v-if="oGrup==='mezun'">Mezuniyet Yılı</th>
                 <th v-if="isAdmin"></th>
               </tr></thead>
               <tbody>
-                <tr v-if="!filteredStudents.length"><td colspan="11"><div class="empty"><i class="ti ti-inbox"></i><p>Öğrenci yok</p></div></td></tr>
+                <tr v-if="!filteredStudents.length"><td :colspan="isAdmin?12:11"><div class="empty"><i class="ti ti-inbox"></i><p>{{ oGrup==='mezun'?'Mezun öğrenci yok':'Öğrenci yok' }}</p></div></td></tr>
                 <tr v-for="s in filteredStudents" :key="s.id">
+                  <td v-if="isAdmin"><input type="checkbox" :value="s.id" v-model="selectedStudents" style="cursor:pointer"></td>
                   <td style="font-family:monospace;font-size:11px">
                     <div style="color:var(--t3)">{{ s.ogrenci_no }}</div>
                     <div style="color:var(--acc);font-weight:600" v-if="s.kurum_no">{{ s.kurum_no }}</div>
@@ -405,6 +429,7 @@ a{color:var(--acc);text-decoration:none}
                       <i class="ti ti-send"></i> {{ s.bildirim_tercih==='anne'?'Anne':'Baba' }}
                     </div>
                   </td>
+                  <template v-if="oGrup==='aktif'">
                   <td>
                     <div style="display:flex;align-items:center;gap:5px">
                       <span class="bdg b-e" v-if="s.gelmedi_sayi>0">{{ s.gelmedi_sayi }} G</span>
@@ -423,9 +448,14 @@ a{color:var(--acc);text-decoration:none}
                     <div v-if="s.yarisma_alani" style="font-size:11px;color:var(--t3)">{{ s.yarisma_alani }}</div>
                     <span v-if="!s.yarisma_turu">—</span>
                   </td>
+                  </template>
+                  <td v-if="oGrup==='mezun'" style="font-weight:600;color:var(--pur)">
+                    {{ s.mezuniyet_yili||'—' }}
+                  </td>
                   <td v-if="isAdmin">
                     <div style="display:flex;gap:4px">
-                      <button class="btn btn-s btn-xs" @click="openOModal(s)"><i class="ti ti-edit"></i></button>
+                      <button v-if="oGrup==='aktif'" class="btn btn-s btn-xs" @click="openOModal(s)"><i class="ti ti-edit"></i></button>
+                      <button v-if="oGrup==='mezun'" class="btn btn-s btn-xs" @click="selectedStudents=[s.id];mezunuGeriAl()" title="Aktife al"><i class="ti ti-arrow-back-up"></i></button>
                     </div>
                   </td>
                 </tr>
@@ -507,11 +537,13 @@ a{color:var(--acc);text-decoration:none}
               </div>
               <div class="fg"><label>Ödeme Notu</label><textarea v-model="oF.odeme_notu" style="min-height:55px" placeholder="Ödeme ile ilgili not…"></textarea></div>
 
+              <template v-if="oF.ogrenci_turu==='proje'">
               <div class="sec">Yarışma Bilgileri</div>
               <div class="gc2">
                 <div class="fg"><label>Yarışma Türü</label><input v-model="oF.yarisma_turu" placeholder="Örn: Ulusal, Uluslararası"></div>
                 <div class="fg"><label>Yarışma Alanı</label><input v-model="oF.yarisma_alani" placeholder="Örn: Robotik, Yazılım"></div>
               </div>
+              </template>
 
               <div class="sec">Diğer</div>
               <div class="fg"><label>Sağlık Notu</label><textarea v-model="oF.saglik_notu" style="min-height:55px" placeholder="Alerji, ilaç vb."></textarea></div>
@@ -523,6 +555,49 @@ a{color:var(--acc);text-decoration:none}
           </div>
         </div>
       </template>
+
+        <!-- Çıktı Al Modal -->
+        <div v-if="printModal" class="mbg" @click.self="printModal=false">
+          <div class="modal">
+            <div class="mh"><span class="mt"><i class="ti ti-printer"></i> Çıktı Al</span><button class="mc" @click="printModal=false">✕</button></div>
+            <div class="mbody">
+              <div class="sec">Başlıklar</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+                <label v-for="col in printCols" :key="col.k" style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;cursor:pointer">
+                  <input type="checkbox" v-model="col.sel" style="cursor:pointer"> {{ col.l }}
+                </label>
+              </div>
+              <div class="sec">Sınıf Filtresi</div>
+              <select v-model="printSinif" style="width:100%;padding:8px 11px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px;margin-bottom:12px">
+                <option value="">Tüm Sınıflar</option>
+                <option v-for="s in siniflar" :key="s.id" :value="s.id">{{ s.ad }}</option>
+              </select>
+            </div>
+            <div class="mf">
+              <button class="btn btn-s" @click="printModal=false">İptal</button>
+              <button class="btn btn-ok" @click="doPrint"><i class="ti ti-printer"></i>Yazdır / PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mezun Yap Modal -->
+        <div v-if="mezunYapModal" class="mbg" @click.self="mezunYapModal=false">
+          <div class="modal">
+            <div class="mh"><span class="mt"><i class="ti ti-school"></i> Mezun Yap</span><button class="mc" @click="mezunYapModal=false">✕</button></div>
+            <div class="mbody">
+              <div class="al al-w"><i class="ti ti-alert-triangle"></i>{{ selectedStudents.length }} öğrenci aktif listeden çıkarılıp Mezunlar grubuna eklenecek.</div>
+              <div class="fg"><label>Mezuniyet Yılı</label>
+                <select v-model="mezunYil" style="width:100%;padding:8px 11px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px">
+                  <option v-for="y in mezunYilOptions" :key="y" :value="y">{{ y }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="mf">
+              <button class="btn btn-s" @click="mezunYapModal=false">İptal</button>
+              <button class="btn btn-w" @click="mezunYap" :disabled="fSaving"><span v-if="fSaving" class="sp"></span><i v-else class="ti ti-school"></i>Mezun Yap</button>
+            </div>
+          </div>
+        </div>
 
       <!-- ══════ DEVAMSIZLIK ══════ -->
       <template v-else-if="page==='devamsizlik'">
@@ -650,14 +725,10 @@ a{color:var(--acc);text-decoration:none}
                     <button class="copy-btn" @click="copyMsg"><i class="ti ti-copy"></i>{{ copied?'Kopyalandı!':'Metni Kopyala' }}</button>
                   </div>
                   <textarea v-model="bF.mesaj" style="min-height:110px" placeholder="Mesaj veya şablon seçin…"></textarea>
-                  <div style="font-size:11px;color:var(--t3);margin-top:3px">{{ bF.mesaj.length }} karakter · {{'{{'}}ad_soyad{{'}}'}} otomatik değiştirilir</div>
+                  <div style="font-size:11px;color:var(--t3);margin-top:3px">{{ bF.mesaj.length }} karakter &middot; &#123;&#123;ad_soyad&#125;&#125; otomatik değiştirilir</div>
                 </div>
                 <button class="btn btn-p btn-fl" @click="sendBildirim" :disabled="bSending"><span v-if="bSending" class="sp"></span><i v-else class="ti ti-send"></i>{{ bSending?'Gönderiliyor…':'Gönder' }}</button>
-                <div style="margin-top:12px;padding:10px 12px;background:var(--bg);border-radius:var(--rs);font-size:12px">
-                  <div style="font-weight:700;color:var(--t2);margin-bottom:6px">📞 VELİ İLETİŞİM</div>
-                  <a :href="'https://wa.me/90'+okul.whatsapp.replace(/\D/g,'')" target="_blank" class="btn btn-wa btn-sm"><i class="ti ti-brand-whatsapp"></i>{{ okul.whatsapp }}</a>
-                  <a :href="'tel:'+okul.telefon" class="btn btn-s btn-sm" style="margin-left:6px"><i class="ti ti-phone"></i>{{ okul.telefon }}</a>
-                </div>
+
               </div>
             </div>
 
@@ -699,7 +770,7 @@ a{color:var(--acc);text-decoration:none}
           <div class="modal">
             <div class="mh"><span class="mt">{{ editSablon?'Şablon Düzenle':'Yeni Şablon' }}</span><button class="mc" @click="sablonModal=false">✕</button></div>
             <div class="mbody">
-              <div class="al al-i"><i class="ti ti-info-circle"></i>Kullanılabilir değişkenler: <code>{{'{{'}}ad_soyad{{'}}'}}</code> <code>{{'{{'}}veli_adi{{'}}'}}</code> <code>{{'{{'}}okul{{'}}'}}</code> <code>{{'{{'}}telefon{{'}}'}}</code> <code>{{'{{'}}mesaj{{'}}'}}</code></div>
+              <div class="al al-i"><i class="ti ti-info-circle"></i>Kullanılabilir değişkenler: <code>&#123;&#123;ad_soyad&#125;&#125;</code> <code>&#123;&#123;veli_adi&#125;&#125;</code> <code>&#123;&#123;okul&#125;&#125;</code> <code>&#123;&#123;telefon&#125;&#125;</code> <code>&#123;&#123;mesaj&#125;&#125;</code></div>
               <div class="fg"><label>Şablon Kodu</label><input v-model="sablonF.kod" placeholder="Örn: devamsizlik" :disabled="!!editSablon"></div>
               <div class="fg"><label>Başlık</label><input v-model="sablonF.baslik" placeholder="Şablon adı"></div>
               <div class="fg"><label>İçerik</label><textarea v-model="sablonF.icerik" style="min-height:130px" placeholder="Mesaj içeriği…"></textarea></div>
@@ -936,11 +1007,11 @@ createApp({
         const [sg,sn,dash,og]=await Promise.allSettled([
           api('GET','ogrenciler'),api('GET','siniflar'),api('GET','dashboard'),api('GET','kullanicilar',null,{rol:'ogretmen'})
         ]);
-        if(sg.status==='fulfilled')students.value=sg.value.data.data||[];
-        if(sn.status==='fulfilled')siniflar.value=sn.value.data.data||[];
-        if(og.status==='fulfilled')ogretmenler.value=og.value.data.data||[];
+        if(sg.status==='fulfilled')students.value=sg.value.data||[];
+        if(sn.status==='fulfilled')siniflar.value=sn.value.data||[];
+        if(og.status==='fulfilled')ogretmenler.value=og.value.data||[];
         if(dash.status==='fulfilled'){
-          const d=dash.value.data.data;
+          const d=dash.value.data;
           stats.value=d.istatistik||{};
           kritikList.value=d.kritik_devamsizlik||[];
           okunmamisNotlar.value=d.okunmamis_notlar||[];
@@ -970,7 +1041,7 @@ createApp({
     function dayKey(d){const y=calYear.value,m=String(calMonth.value).padStart(2,'0'),dd=String(d).padStart(2,'0');return `${y}-${m}-${dd}`;}
     function isToday(d){if(!d)return false;return dayKey(d)===new Date().toISOString().slice(0,10);}
     async function loadCalendar(){
-      try{const r=await api('GET','dashboard/takvim',null,{yil:calYear.value,ay:calMonth.value});calData.value=r.data.data||{};}catch(e){}
+      try{const r=await api('GET','dashboard/takvim',null,{yil:calYear.value,ay:calMonth.value});calData.value=r.data||{};}catch(e){}
     }
     function prevMonth(){if(calMonth.value===1){calMonth.value=12;calYear.value--;}else calMonth.value--;loadCalendar();}
     function nextMonth(){if(calMonth.value===12){calMonth.value=1;calYear.value++;}else calMonth.value++;loadCalendar();}
@@ -978,9 +1049,38 @@ createApp({
     // Öğrenciler
     const sQ=ref('');const sTur=ref('');const sSort=ref('soyad');const sDir=ref('ASC');
     const oModal=ref(false);const editO=ref(null);const oF=ref({});const fErr=ref('');const fSaving=ref(false);
+    // Mezun grup
+    const oGrup=ref('aktif');const mezunlar=ref([]);
+    const selectedStudents=ref([]);
+    const mezunYapModal=ref(false);const mezunYil=ref(new Date().getFullYear());
+    const mezunYilOptions=computed(()=>{const y=new Date().getFullYear();return Array.from({length:10},(_, i)=>y-i);});
+    const printModal=ref(false);const printSinif=ref('');
+    const printCols=ref([
+      {k:'ogrenci_no',l:'Öğrenci No',sel:true},{k:'ad_soyad',l:'Ad Soyad',sel:true},{k:'tc_no',l:'TC Kimlik',sel:false},
+      {k:'sinif_adi',l:'Sınıf',sel:true},{k:'okul_adi',l:'Okul',sel:true},{k:'baba_adi',l:'Baba Adı',sel:true},
+      {k:'baba_tel',l:'Baba Tel',sel:true},{k:'anne_adi',l:'Anne Adı',sel:true},{k:'anne_tel',l:'Anne Tel',sel:true},
+      {k:'odeme_durumu',l:'Ödeme Durumu',sel:false},{k:'devamsizlik',l:'Devamsızlık',sel:false},
+    ]);
+    const mezunYilFilter=ref('');
+    const mezunYillar=computed(()=>[...new Set(mezunlar.value.map(s=>s.mezuniyet_yili).filter(Boolean))].sort((a,b)=>b-a));
+
+    async function loadStudentsByGrup(){
+      selectedStudents.value=[];
+      if(oGrup.value==='mezun'){
+        try{const r=await api('GET','ogrenciler',null,{grup:'mezun'});mezunlar.value=r.data||[];}
+        catch(e){toast('Mezunlar yüklenemedi','e');}
+      }
+    }
+
     function toggleSort(s){if(sSort.value===s){sDir.value=sDir.value==='ASC'?'DESC':'ASC';}else{sSort.value=s;sDir.value='ASC';}}
+    function toggleSelectAll(e){
+      if(e.target.checked)selectedStudents.value=filteredStudents.value.map(s=>s.id);
+      else selectedStudents.value=[];
+    }
     const filteredStudents=computed(()=>{
-      let list=students.value.filter(s=>!sTur.value||s.ogrenci_turu===sTur.value);
+      let list=oGrup.value==='mezun'
+        ? mezunlar.value.filter(s=>!mezunYilFilter.value||String(s.mezuniyet_yili)===String(mezunYilFilter.value))
+        : students.value.filter(s=>!sTur.value||s.ogrenci_turu===sTur.value);
       const q=sQ.value.toLowerCase();
       if(q)list=list.filter(s=>(s.ad+' '+s.soyad+' '+(s.tc_no||'')+' '+(s.ogrenci_no||'')+' '+(s.kurum_no||'')).toLowerCase().includes(q));
       return list.sort((a,b)=>{
@@ -989,6 +1089,50 @@ createApp({
         return sDir.value==='ASC'?String(av).localeCompare(String(bv),'tr'):String(bv).localeCompare(String(av),'tr');
       });
     });
+    async function mezunYap(){
+      fSaving.value=true;
+      try{
+        await api('PUT','ogrenciler/mezun-yap',{ids:selectedStudents.value,mezuniyet_yili:mezunYil.value});
+        mezunYapModal.value=false;selectedStudents.value=[];
+        await loadAll();toast('Öğrenciler mezun yapıldı');
+      }catch(e){toast(e.response?.data?.message||'Hata','e');}
+      fSaving.value=false;
+    }
+    async function mezunuGeriAl(){
+      if(!confirm('Seçili öğrenciler aktif listeye geri alınsın mı?'))return;
+      try{
+        await api('PUT','ogrenciler/mezunu-geri-al',{ids:selectedStudents.value});
+        selectedStudents.value=[];await loadAll();await loadStudentsByGrup();toast('Geri alındı');
+      }catch(e){toast(e.response?.data?.message||'Hata','e');}
+    }
+    function doPrint(){
+      const cols=printCols.value.filter(c=>c.sel);
+      let src=filteredStudents.value;
+      if(printSinif.value)src=src.filter(s=>s.sinif_id==printSinif.value);
+      const headers=cols.map(c=>`<th style="border:1px solid #ccc;padding:6px 10px;background:#f0f4ff;font-size:12px">${c.l}</th>`).join('');
+      const rows=src.map(s=>{
+        const cells=cols.map(c=>{
+          let v='';
+          if(c.k==='ad_soyad')v=s.ad+' '+s.soyad;
+          else if(c.k==='devamsizlik')v=(s.gelmedi_sayi||0)+' G / '+(s.mazeret_sayi||0)+' M';
+          else v=s[c.k]||'—';
+          return `<td style="border:1px solid #ddd;padding:5px 10px;font-size:11px">${v}</td>`;
+        }).join('');
+        return `<tr>${cells}</tr>`;
+      }).join('');
+      const w=window.open('','_blank');
+      w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Öğrenci Listesi</title>
+        <style>body{font-family:Arial,sans-serif;padding:20px}h2{margin-bottom:16px;font-size:16px}table{border-collapse:collapse;width:100%}@media print{button{display:none}}</style>
+        </head><body>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h2>📚 Öğrenci Listesi — ${src.length} öğrenci</h2>
+          <button onclick="window.print()" style="padding:8px 16px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px">🖨️ Yazdır / PDF</button>
+        </div>
+        <table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>
+        </body></html>`);
+      w.document.close();
+      printModal.value=false;
+    }
     function openOModal(s=null){
       editO.value=s;
       oF.value=s?{...s}:{ogrenci_turu:'egitim',danisman_id:'',sinif_id:'',tc_no:'',kurum_no:'',ad:'',soyad:'',dogum_tarihi:'',cinsiyet:'',okul_adi:'',baba_adi:'',baba_tel:'',anne_adi:'',anne_tel:'',bildirim_tercih:'baba',acil_tel:'',saglik_notu:'',adres:'',yarisma_turu:'',yarisma_alani:'',odeme_durumu:'bekliyor',kayit_tutari:0,odeme_notu:''};
@@ -1012,13 +1156,13 @@ createApp({
     const devMazC=computed(()=>Object.values(devState.value).filter(v=>v==='mazeretli').length);
     function setDev(id,d){devState.value={...devState.value,[id]:d};}
     function hepsiniGeldi(){const s={};devStudents.value.forEach(st=>{s[st.id]='geldi';});devState.value=s;}
-    async function loadDevList(){try{const r=await api('GET','devamsizlik',null,{tarih:devTarih.value});devList.value=r.data.data?.data||[];}catch(e){}}
+    async function loadDevList(){try{const r=await api('GET','devamsizlik',null,{tarih:devTarih.value});devList.value=r.data?.data||[];}catch(e){}}
     async function saveDevamsizlik(){
       devSaving.value=true;
       try{
         const kayitlar=devStudents.value.map(s=>({student_id:s.id,durum:devState.value[s.id]||'geldi'}));
         const r=await api('POST','devamsizlik/toplu',{tarih:devTarih.value,kayitlar});
-        const bil=r.data.data?.bildirim_sayisi||0;
+        const bil=r.data?.bildirim_sayisi||0;
         toast(`Kaydedildi${bil>0?`. ${bil} veli bilgilendirildi`:'.'}`);
         await loadDevList();await loadAll();
       }catch(e){toast(e.response?.data?.message||'Hata','e');}
@@ -1030,7 +1174,7 @@ createApp({
     const teacherNotes=ref([]);const notModal=ref(false);const nF=ref({});const noteDetail=ref(null);const notFilter=ref('');
     const filteredNotes=computed(()=>notFilter.value===''?teacherNotes.value:teacherNotes.value.filter(n=>String(n.is_read)===notFilter.value));
     function resetNF(){nF.value={student_id:'',baslik:'',icerik:'',kategori:'genel',onem:'normal',veliye_gorunsun:true};fErr.value='';}
-    async function loadNotes(){try{const r=await api('GET','ogretmen-notlari');teacherNotes.value=r.data.data?.data||r.data.data||[];}catch(e){}}
+    async function loadNotes(){try{const r=await api('GET','ogretmen-notlari');teacherNotes.value=r.data?.data||r.data||[];}catch(e){}}
     async function saveNote(){
       if(!nF.value.student_id||!nF.value.icerik){fErr.value='Öğrenci ve içerik gerekli';return;}
       fSaving.value=true;fErr.value='';
@@ -1050,8 +1194,8 @@ createApp({
     // Bildirimler
     const bLog=ref([]);const bF=ref({student_id:'',mesaj:'',kanal:'whatsapp',sablon_tipi:'genel'});const bSending=ref(false);const copied=ref(false);
     const templates=ref([]);const sablonModal=ref(false);const editSablon=ref(null);const sablonF=ref({kod:'',baslik:'',icerik:''});
-    async function loadBLog(){try{const r=await api('GET','bildirim/log',null,{per_page:60});bLog.value=(r.data.data?.data||[]).map(l=>({...l,student:{id:l.student_id,ad:l.student_ad,soyad:l.student_soyad}}));failedC.value=bLog.value.filter(l=>l.durum==='failed').length;}catch(e){}}
-    async function loadTemplates(){try{const r=await api('GET','sablonlar');templates.value=r.data.data||[];}catch(e){}}
+    async function loadBLog(){try{const r=await api('GET','bildirim/log',null,{per_page:60});bLog.value=(r.data?.data||[]).map(l=>({...l,student:{id:l.student_id,ad:l.student_ad,soyad:l.student_soyad}}));failedC.value=bLog.value.filter(l=>l.durum==='failed').length;}catch(e){}}
+    async function loadTemplates(){try{const r=await api('GET','sablonlar');templates.value=r.data||[];}catch(e){}}
     function applyTemplate(id){const t=templates.value.find(t=>t.id==id);if(t){bF.value.mesaj=t.icerik;bF.value.sablon_tipi=t.kod;}}
     async function sendBildirim(){
       if(!bF.value.student_id||!bF.value.mesaj){toast('Öğrenci ve mesaj gerekli','w');return;}
@@ -1082,12 +1226,12 @@ createApp({
     // Raporlar
     const raporData=ref([]);const rQ=ref('');
     const filteredRapor=computed(()=>{const q=rQ.value.toLowerCase();return raporData.value.filter(s=>!q||(s.ad+' '+s.soyad).toLowerCase().includes(q));});
-    async function loadRapor(){try{const r=await api('GET','raporlar/devamsizlik-ozet');raporData.value=r.data.data||[];}catch(e){}}
+    async function loadRapor(){try{const r=await api('GET','raporlar/devamsizlik-ozet');raporData.value=r.data||[];}catch(e){}}
 
     // Kullanıcılar
     const allUsers=ref([]);const uRolFilter=ref('');const uModal=ref(false);const editU=ref(null);const uF=ref({});
     const filteredUsers=computed(()=>allUsers.value.filter(u=>!uRolFilter.value||u.rol===uRolFilter.value));
-    async function loadUsers(){try{const r=await api('GET','kullanicilar');allUsers.value=r.data.data||[];}catch(e){toast('Kullanıcılar yüklenemedi','e');}}
+    async function loadUsers(){try{const r=await api('GET','kullanicilar');allUsers.value=r.data||[];}catch(e){toast('Kullanıcılar yüklenemedi','e');}}
     function openUModal(u=null){editU.value=u;uF.value=u?{...u,sifre:'',sifre2:''}:{ad:'',soyad:'',email:'',telefon:'',rol:'ogretmen',sifre:'',sifre2:''};fErr.value='';uModal.value=true;}
     async function saveUser(){
       if(!uF.value.ad||!uF.value.soyad||!uF.value.email){fErr.value='Ad, soyad ve e-posta gerekli';return;}
@@ -1157,6 +1301,8 @@ createApp({
       stats,kritikList,okunmamisNotlar,okul,
       calYear,calMonth,calMonthName,calDays,calData,hovDay,dayKey,isToday,prevMonth,nextMonth,
       students,siniflar,ogretmenler,sQ,sTur,sSort,sDir,filteredStudents,toggleSort,
+      oGrup,mezunlar,selectedStudents,mezunYapModal,mezunYil,mezunYilOptions,mezunYilFilter,mezunYillar,loadStudentsByGrup,toggleSelectAll,mezunYap,mezunuGeriAl,
+      printModal,printSinif,printCols,doPrint,
       oModal,editO,oF,fErr,fSaving,openOModal,saveOgrenci,
       devTarih,devSinif,devState,devSaving,devList,devStudents,devGelmediC,devMazC,setDev,hepsiniGeldi,loadDevList,saveDevamsizlik,
       teacherNotes,filteredNotes,notModal,nF,notFilter,noteDetail,resetNF,saveNote,markNoteRead,deleteNote,

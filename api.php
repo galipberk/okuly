@@ -295,17 +295,24 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
     $p=auth();$inst=$p['inst']??1;
 
     if($m==='GET'&&!$id){
+        // mezun grubu için grup parametresi
+        $grupFilter=get('grup','');
         $sql='SELECT s.*,si.ad sinif_adi,
               IFNULL(ROUND(SUM(CASE WHEN a.durum="gelmedi" THEN 1 ELSE 0 END)/NULLIF(COUNT(a.id),0)*100,1),0) devamsizlik_orani,
               SUM(CASE WHEN a.durum="gelmedi" THEN 1 ELSE 0 END) gelmedi_sayi,
               SUM(CASE WHEN a.durum="mazeretli" THEN 1 ELSE 0 END) mazeret_sayi,
-              u2.ad danisман_adi, u2.soyad danisман_soyad
+              u2.ad danisman_adi, u2.soyad danisman_soyad
               FROM students s
-              JOIN siniflar si ON si.id=s.sinif_id
+              LEFT JOIN siniflar si ON si.id=s.sinif_id
               LEFT JOIN attendance a ON a.student_id=s.id
-              LEFT JOIN users u2 ON u2.id=s.danisман_id
-              WHERE s.institution_id=? AND s.aktif=1';
+              LEFT JOIN users u2 ON u2.id=s.danisman_id
+              WHERE s.institution_id=?';
         $params=[$inst];
+        if($grupFilter==='mezun'){
+            $sql.=' AND s.aktif=0 AND s.mezun=1';
+        } else {
+            $sql.=' AND s.aktif=1';
+        }
         if(!empty($_GET['tur'])){$sql.=' AND s.ogrenci_turu=?';$params[]=$_GET['tur'];}
         if(!empty($_GET['sinif_id'])){$sql.=' AND s.sinif_id=?';$params[]=(int)$_GET['sinif_id'];}
         if(!empty($_GET['q'])){$sql.=' AND (s.ad LIKE ? OR s.soyad LIKE ? OR s.tc_no LIKE ? OR s.ogrenci_no LIKE ?)';$qq='%'.$_GET['q'].'%';array_push($params,$qq,$qq,$qq,$qq);}
@@ -328,8 +335,8 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
         if(!$b['ad']||!$b['soyad'])err('Ad ve soyad gerekli');
         $no=$b['kurum_no']??('OGR-'.date('Y').'-'.str_pad((qOne('SELECT IFNULL(MAX(id),0)+1 n FROM students')['n']??1),4,'0',STR_PAD_LEFT));
         try{
-            $nid=qRun('INSERT INTO students (institution_id,sinif_id,ogrenci_turu,danisман_id,ogrenci_no,tc_no,kurum_no,ad,soyad,dogum_tarihi,cinsiyet,okul_adi,anne_adi,anne_tel,baba_adi,baba_tel,bildirim_tercih,acil_tel,saglik_notu,adres,yarisma_turu,yarisma_alani,odeme_durumu,kayit_tutari,odeme_notu) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                [$inst,$b['sinif_id']??null,$b['ogrenci_turu']??'egitim',$b['danisман_id']??null,$no,$b['tc_no']??null,$no,$b['ad'],$b['soyad'],$b['dogum_tarihi']??null,$b['cinsiyet']??null,$b['okul_adi']??null,$b['anne_adi']??null,$b['anne_tel']??null,$b['baba_adi']??null,$b['baba_tel']??null,$b['bildirim_tercih']??'baba',$b['acil_tel']??null,$b['saglik_notu']??null,$b['adres']??null,$b['yarisma_turu']??null,$b['yarisma_alani']??null,$b['odeme_durumu']??'bekliyor',$b['kayit_tutari']??0,$b['odeme_notu']??null]);
+            $nid=qRun('INSERT INTO students (institution_id,sinif_id,ogrenci_turu,danisman_id,ogrenci_no,tc_no,kurum_no,ad,soyad,dogum_tarihi,cinsiyet,okul_adi,anne_adi,anne_tel,baba_adi,baba_tel,bildirim_tercih,acil_tel,saglik_notu,adres,yarisma_turu,yarisma_alani,odeme_durumu,kayit_tutari,odeme_notu) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                [$inst,$b['sinif_id']??null,$b['ogrenci_turu']??'egitim',$b['danisman_id']??null,$no,$b['tc_no']??null,$no,$b['ad'],$b['soyad'],$b['dogum_tarihi']??null,$b['cinsiyet']??null,$b['okul_adi']??null,$b['anne_adi']??null,$b['anne_tel']??null,$b['baba_adi']??null,$b['baba_tel']??null,$b['bildirim_tercih']??'baba',$b['acil_tel']??null,$b['saglik_notu']??null,$b['adres']??null,$b['yarisma_turu']??null,$b['yarisma_alani']??null,$b['odeme_durumu']??'bekliyor',$b['kayit_tutari']??0,$b['odeme_notu']??null]);
             ok(['id'=>$nid,'ogrenci_no'=>$no],'Öğrenci eklendi',201);
         }catch(\PDOException $e){
             if(str_contains($e->getMessage(),'Unknown column')){
@@ -342,7 +349,7 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
 
     if($m==='PUT'&&$id){
         auth(['admin']);$b=body();
-        $FIELDS=['sinif_id','ogrenci_turu','danisман_id','tc_no','kurum_no','ad','soyad','dogum_tarihi','cinsiyet','okul_adi','anne_adi','anne_tel','baba_adi','baba_tel','bildirim_tercih','acil_tel','saglik_notu','adres','yarisma_turu','yarisma_alani','odeme_durumu','kayit_tutari','odeme_notu'];
+        $FIELDS=['sinif_id','ogrenci_turu','danisman_id','tc_no','kurum_no','ad','soyad','dogum_tarihi','cinsiyet','okul_adi','anne_adi','anne_tel','baba_adi','baba_tel','bildirim_tercih','acil_tel','saglik_notu','adres','yarisma_turu','yarisma_alani','odeme_durumu','kayit_tutari','odeme_notu'];
         $set=[];$vals=[];foreach($FIELDS as $f) if(array_key_exists($f,$b)){$set[]="$f=?";$vals[]=$b[$f];}
         if($set){try{$vals[]=$id;qRun('UPDATE students SET '.implode(',',$set).' WHERE id=?',$vals);}catch(\PDOException $e){$temel=['sinif_id','ad','soyad','dogum_tarihi','cinsiyet','acil_tel','saglik_notu'];$s2=[];$v2=[];foreach($temel as $f) if(array_key_exists($f,$b)){$s2[]="$f=?";$v2[]=$b[$f];}if($s2){$v2[]=$id;qRun('UPDATE students SET '.implode(',',$s2).' WHERE id=?',$v2);}}}
         ok(null,'Güncellendi');
@@ -350,7 +357,40 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
 
     if($m==='DELETE'&&$id){auth(['admin']);qRun('UPDATE students SET aktif=0 WHERE id=?',[$id]);ok(null,'Silindi');}
 
-    // Öğrencinin devamsızlık limiti durumu
+    // Mezun yap (toplu)
+    if($m==='PUT'&&$sub==='mezun-yap'){
+        auth(['admin']);$b=body();
+        $ids=$b['ids']??[];$yil=$b['mezuniyet_yili']??date('Y');
+        if(empty($ids))err('Ogrenci secilmedi');
+        $ph=implode(',',array_fill(0,count($ids),'?'));
+        try{
+            qRun("UPDATE students SET aktif=0,mezun=1,mezuniyet_yili=? WHERE id IN ($ph) AND institution_id=?"
+                ,array_merge([$yil],$ids,[$inst]));
+        }catch(\PDOException $e){
+            if(str_contains($e->getMessage(),'Unknown column')){
+                try{
+                    qRun('ALTER TABLE students ADD COLUMN mezun TINYINT(1) DEFAULT 0');
+                    qRun('ALTER TABLE students ADD COLUMN mezuniyet_yili YEAR DEFAULT NULL');
+                    qRun("UPDATE students SET aktif=0,mezun=1,mezuniyet_yili=? WHERE id IN ($ph) AND institution_id=?"
+                        ,array_merge([$yil],$ids,[$inst]));
+                }catch(\PDOException $e2){err('DB hatasi: '.$e2->getMessage(),500);}
+            } else err('DB hatasi: '.$e->getMessage(),500);
+        }
+        ok(null,count($ids).' ogrenci mezun yapildi');
+    }
+
+    // Mezundan aktif listeye geri al
+    if($m==='PUT'&&$sub==='mezunu-geri-al'){
+        auth(['admin']);$b=body();
+        $ids=$b['ids']??[];
+        if(empty($ids))err('Ogrenci secilmedi');
+        $ph=implode(',',array_fill(0,count($ids),'?'));
+        $pars=array_merge($ids,[$inst]);
+        qRun("UPDATE students SET aktif=1,mezun=0,mezuniyet_yili=NULL WHERE id IN ($ph) AND institution_id=?",$pars);
+        ok(null,'Geri alindi');
+    }
+
+    // Ogrencinin devamsizlik limiti durumu
     if($m==='GET'&&$id&&$sub==='limit'){
         $okul=getOkulInfo($inst);
         $r=qOne('SELECT SUM(durum="gelmedi") gelmedi,SUM(durum="mazeretli") mazeretli FROM attendance WHERE student_id=?',[$id]);
