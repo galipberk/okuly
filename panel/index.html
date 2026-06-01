@@ -254,8 +254,8 @@ a{color:var(--acc);text-decoration:none}
             <div class="sl">Aktif Proje Öğrencisi</div><div class="ss">Proje programı</div>
           </div>
           <div class="sc" style="border-left:3px solid var(--ok)">
-            <div class="si">📊</div><div class="sv" style="color:var(--ok)">{{ stats.toplam_ogrenci||0 }}</div>
-            <div class="sl">Toplam Öğrenci</div><div class="ss">Mezunlar dahil</div>
+            <div class="si">🎉</div><div class="sv" style="color:var(--ok)">{{ stats.mezun_ogrenci||0 }}</div>
+            <div class="sl">Mezun Öğrenci</div><div class="ss">Toplam aktif: {{ stats.toplam_ogrenci||0 }}</div>
           </div>
         </div>
 
@@ -362,21 +362,19 @@ a{color:var(--acc);text-decoration:none}
 
         <!-- Sekme: Aktif / Mezunlar -->
         <div style="display:flex;gap:6px;margin-bottom:12px">
-          <button :class="'btn btn-sm '+(oGrup==='aktif'?'btn-p':'btn-s')" @click="oGrup='aktif';loadStudentsByGrup()"><i class="ti ti-users"></i>Aktif Öğrenciler</button>
-          <button :class="'btn btn-sm '+(oGrup==='mezun'?'btn-p':'btn-s')" @click="oGrup='mezun';loadStudentsByGrup()"><i class="ti ti-school"></i>Mezunlar</button>
+          <button :class="'btn btn-sm '+(oGrup==='egitim'?'btn-p':'btn-s')" @click="oGrup='egitim';loadStudentsByGrup()"><i class="ti ti-school"></i>Eğitim Öğrencileri</button>
+          <button :class="'btn btn-sm '+(oGrup==='proje'?'btn-p':'btn-s')" @click="oGrup='proje';loadStudentsByGrup()"><i class="ti ti-flask"></i>Proje Öğrencileri</button>
+          <button :class="'btn btn-sm '+(oGrup==='mezun'?'btn-p':'btn-s')" @click="oGrup='mezun';loadStudentsByGrup()"><i class="ti ti-certificate"></i>Mezun Öğrenciler</button>
         </div>
 
         <div class="card">
           <div class="ch">
             <span class="ct"><i class="ti ti-users"></i>
-              <span v-if="oGrup==='aktif'">Öğrenciler ({{ filteredStudents.length }})</span>
-              <span v-else>Mezunlar ({{ filteredStudents.length }})</span>
+              <span>{{ oGrup==='egitim' ? 'Eğitim Öğrencileri' : oGrup==='proje' ? 'Proje Öğrencileri' : 'Mezun Öğrenciler' }} ({{ filteredStudents.length }})</span>
             </span>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
               <!-- Tür filtresi (sadece aktif listede) -->
-              <div v-if="oGrup==='aktif'" style="display:flex;gap:4px">
-                <button v-for="t in [{v:'',l:'Tümü'},{v:'egitim',l:'🎓 Eğitim'},{v:'proje',l:'🔬 Proje'}]" :key="t.v" :class="'sort-btn'+(sTur===t.v?' act':'')" @click="sTur=t.v">{{ t.l }}</button>
-              </div>
+              <!-- tur filtreleme artık tablar üzerinden yapılıyor -->
               <!-- Mezun yıl filtresi -->
               <select v-if="oGrup==='mezun'" v-model="mezunYilFilter" style="padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px">
                 <option value="">Tüm Yıllar</option>
@@ -384,12 +382,12 @@ a{color:var(--acc);text-decoration:none}
               </select>
               <input v-model="sQ" placeholder="Ara…" style="padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px;width:160px">
               <!-- Seçili mezun yap -->
-              <button v-if="isAdmin&&oGrup==='aktif'&&selectedStudents.length>0" class="btn btn-w btn-sm" @click="mezunYapModal=true"><i class="ti ti-school"></i>Seçilenleri Mezun Yap ({{ selectedStudents.length }})</button>
+              <button v-if="isAdmin&&oGrup!=='mezun'&&selectedStudents.length>0" class="btn btn-w btn-sm" @click="mezunYapModal=true"><i class="ti ti-school"></i>Seçilenleri Mezun Yap ({{ selectedStudents.length }})</button>
               <!-- Seçili geri al -->
               <button v-if="isAdmin&&oGrup==='mezun'&&selectedStudents.length>0" class="btn btn-s btn-sm" @click="mezunuGeriAl()"><i class="ti ti-arrow-back-up"></i>Geri Al ({{ selectedStudents.length }})</button>
               <!-- Çıktı al -->
               <button class="btn btn-ok btn-sm" @click="printModal=true"><i class="ti ti-printer"></i>Çıktı Al</button>
-              <button v-if="isAdmin&&oGrup==='aktif'" class="btn btn-p btn-sm" @click="openOModal()"><i class="ti ti-plus"></i>Yeni</button>
+              <button v-if="isAdmin&&oGrup!=='mezun'" class="btn btn-p btn-sm" @click="openOModal()"><i class="ti ti-plus"></i>Yeni</button>
             </div>
           </div>
           <!-- Sıralama -->
@@ -406,7 +404,8 @@ a{color:var(--acc);text-decoration:none}
                 <th v-if="isAdmin"><input type="checkbox" @change="toggleSelectAll($event)" style="cursor:pointer"></th>
                 <th>No / Kurum No</th><th>Ad Soyad</th><th>Tür</th><th>Sınıf</th>
                 <th>TC</th><th>Okul</th><th>Baba / Anne</th>
-                <th v-if="oGrup==='aktif'">Devamsızlık</th><th v-if="oGrup==='aktif'">Ödeme</th><th v-if="oGrup==='aktif'">Yarışma</th>
+                <th v-if="oGrup==='proje'">Danışman</th>
+                <th v-if="oGrup!=='mezun'">Devamsızlık</th><th v-if="oGrup!=='mezun'">Ödeme</th><th v-if="oGrup!=='mezun'">Yarışma</th>
                 <th v-if="oGrup==='mezun'">Mezuniyet Yılı</th>
                 <th v-if="isAdmin"></th>
               </tr></thead>
@@ -430,7 +429,11 @@ a{color:var(--acc);text-decoration:none}
                       <i class="ti ti-send"></i> {{ s.bildirim_tercih==='anne'?'Anne':'Baba' }}
                     </div>
                   </td>
-                  <template v-if="oGrup==='aktif'">
+                  <td v-if="oGrup==='proje'" style="font-size:12px;color:var(--pur)">
+                    <span v-if="s.danisman_adi">👨‍🏫 {{ s.danisman_adi }} {{ s.danisman_soyad }}</span>
+                    <span v-else style="color:var(--t3)">—</span>
+                  </td>
+                  <template v-if="oGrup!=='mezun'">
                   <td>
                     <div style="display:flex;align-items:center;gap:5px">
                       <span class="bdg b-e" v-if="s.gelmedi_sayi>0">{{ s.gelmedi_sayi }} G</span>
@@ -455,7 +458,7 @@ a{color:var(--acc);text-decoration:none}
                   </td>
                   <td v-if="isAdmin">
                     <div style="display:flex;gap:4px">
-                      <button v-if="oGrup==='aktif'" class="btn btn-s btn-xs" @click="openOModal(s)"><i class="ti ti-edit"></i></button>
+                      <button v-if="oGrup!=='mezun'" class="btn btn-s btn-xs" @click="openOModal(s)"><i class="ti ti-edit"></i></button>
                       <button v-if="oGrup==='mezun'" class="btn btn-s btn-xs" @click="selectedStudents=[s.id];mezunuGeriAl()" title="Aktife al"><i class="ti ti-arrow-back-up"></i></button>
                     </div>
                   </td>
@@ -466,7 +469,7 @@ a{color:var(--acc);text-decoration:none}
         </div>
 
         <!-- Öğrenci Modal -->
-        <div v-if="oModal" class="mbg" @click.self="oModal=false">
+        <div v-if="oModal" class="mbg">
           <div class="modal modal-lg">
             <div class="mh"><span class="mt">{{ editO?'Öğrenci Düzenle':'Yeni Öğrenci Kaydı' }}</span><button class="mc" @click="oModal=false">✕</button></div>
             <div class="mbody">
@@ -1051,7 +1054,7 @@ createApp({
     const sQ=ref('');const sTur=ref('');const sSort=ref('soyad');const sDir=ref('ASC');
     const oModal=ref(false);const editO=ref(null);const oF=ref({});const fErr=ref('');const fSaving=ref(false);
     // Mezun grup
-    const oGrup=ref('aktif');const mezunlar=ref([]);
+    const oGrup=ref('egitim');const mezunlar=ref([]);
     const selectedStudents=ref([]);
     const mezunYapModal=ref(false);const mezunYil=ref(new Date().getFullYear());
     const mezunYilOptions=computed(()=>{const y=new Date().getFullYear();return Array.from({length:10},(_, i)=>y-i);});
@@ -1081,7 +1084,7 @@ createApp({
     const filteredStudents=computed(()=>{
       let list=oGrup.value==='mezun'
         ? mezunlar.value.filter(s=>!mezunYilFilter.value||String(s.mezuniyet_yili)===String(mezunYilFilter.value))
-        : students.value.filter(s=>!sTur.value||s.ogrenci_turu===sTur.value);
+        : students.value.filter(s=>s.ogrenci_turu===oGrup.value);
       const q=sQ.value.toLowerCase();
       if(q)list=list.filter(s=>(s.ad+' '+s.soyad+' '+(s.tc_no||'')+' '+(s.ogrenci_no||'')+' '+(s.kurum_no||'')).toLowerCase().includes(q));
       return list.sort((a,b)=>{

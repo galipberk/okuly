@@ -162,6 +162,8 @@ function rDashboard(string $m,string $s):void{
         $egitim=qOne('SELECT COUNT(*) c FROM students WHERE institution_id=? AND ogrenci_turu="egitim" AND aktif=1',[$inst]);
         $proje=qOne('SELECT COUNT(*) c FROM students WHERE institution_id=? AND ogrenci_turu="proje" AND aktif=1',[$inst]);
         $toplam=qOne('SELECT COUNT(*) c FROM students WHERE institution_id=? AND aktif=1',[$inst]);
+        // Mezun sayisi
+        try{$mezun=qOne('SELECT COUNT(*) c FROM students WHERE institution_id=? AND aktif=0 AND mezun=1',[$inst]);}catch(\PDOException $e){$mezun=['c'=>0];}
 
         // Bugun devamsiz
         $bugun_dev=qOne('SELECT COUNT(DISTINCT student_id) c FROM attendance a JOIN students s ON s.id=a.student_id WHERE s.institution_id=? AND a.tarih=? AND a.durum="gelmedi"',[$inst,today_str()]);
@@ -198,7 +200,7 @@ function rDashboard(string $m,string $s):void{
                  WHERE s.institution_id=? GROUP BY a.student_id HAVING oran>=30 ORDER BY oran DESC LIMIT 5',[$inst]);
 
         ok([
-            'istatistik'=>['egitim_ogrenci'=>(int)$egitim['c'],'proje_ogrenci'=>(int)$proje['c'],'toplam_ogrenci'=>(int)$toplam['c'],'devamsiz_bugun'=>(int)$bugun_dev['c'],'bildirim_bu_ay'=>(int)$bil_ay['c'],'basarisiz_bildirim'=>(int)$bil_bas['c']],
+            'istatistik'=>['egitim_ogrenci'=>(int)$egitim['c'],'proje_ogrenci'=>(int)$proje['c'],'toplam_ogrenci'=>(int)$toplam['c'],'mezun_ogrenci'=>(int)($mezun['c']??0),'devamsiz_bugun'=>(int)$bugun_dev['c'],'bildirim_bu_ay'=>(int)$bil_ay['c'],'basarisiz_bildirim'=>(int)$bil_bas['c']],
             'kritik_devamsizlik'=>$kritik,
             'okunmamis_notlar'=>$okunmamis,
             'risk_listesi'=>$risk,
@@ -431,7 +433,7 @@ function rDevamsizlik(string $m,?int $id,string $sub):void{
     if($m==='GET'&&$sub!=='ozet'){
         $sql='SELECT a.*,s.ad ogrenci_adi,s.soyad ogrenci_soyad,s.ogrenci_no,s.ogrenci_turu FROM attendance a JOIN students s ON s.id=a.student_id WHERE s.institution_id=?';
         $params=[$inst];
-        if($p['rol']==='veli'){$sql.=' AND s.veli_id=?';$params[]=$p['sub'];}
+        if($p['rol']==='veli'){$sql.=' AND 1=0';} // veli_id kolonu yok, veli erişimi desteklenmiyor
         $bas=get('baslangic',date('Y-m-01'));$bit=get('bitis',today_str());
         $sql.=' AND a.tarih BETWEEN ? AND ?';$params[]=$bas;$params[]=$bit;
         if(!empty($_GET['student_id'])){$sql.=' AND a.student_id=?';$params[]=(int)$_GET['student_id'];}
@@ -445,7 +447,7 @@ function rDevamsizlik(string $m,?int $id,string $sub):void{
         $b=body();
         if(!$b['tarih']||!$b['kayitlar'])err('tarih ve kayitlar gerekli');
         $eklenen=0;$bildirimler=[];
-        $stmt=db()->prepare('INSERT INTO attendance (student_id,tarih,durum,gec_dakika,not_,giris_yapan) VALUES (?,?,?,0,?,?) ON DUPLICATE KEY UPDATE durum=VALUES(durum),not_=VALUES(not_)');
+        $stmt=db()->prepare('INSERT INTO attendance (student_id,tarih,durum,not_,giris_yapan) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE durum=VALUES(durum),not_=VALUES(not_)');
         foreach($b['kayitlar'] as $k){
             $durum=$k['durum']??'geldi';
             if(!in_array($durum,['geldi','gelmedi','mazeretli']))$durum='geldi';
@@ -476,12 +478,12 @@ function rDevamsizlik(string $m,?int $id,string $sub):void{
 }
 
 function gonderDevamsizlikBildirim(int $sid,string $tarih,string $durum,int $giren,int $inst,array $okul):void{
-    $s=qOne('SELECT s.*,u.telefon veli_tel,u.ad veli_adi FROM students s LEFT JOIN users u ON u.id=s.veli_id WHERE s.id=?',[$sid]);
+    $s=qOne('SELECT s.* FROM students s WHERE s.id=?',[$sid]);
     if(!$s)return;
     // Bildirim telefonu — bildirim_tercih'e göre
     $tercih=$s['bildirim_tercih']??'baba';
     $tel=$tercih==='anne'?($s['anne_tel']??null):($s['baba_tel']??null);
-    if(!$tel)$tel=$s['anne_tel']??$s['baba_tel']??$s['veli_tel']??$s['acil_tel']??null;
+    if(!$tel)$tel=$s['anne_tel']??$s['baba_tel']??$s['acil_tel']??null;
     if(!$tel)return;
 
     $sablon_kod=$durum==='mazeretli'?'mazeretli':'devamsizlik';
@@ -531,7 +533,7 @@ function rOgretmenNot(string $m,?int $id,string $sub):void{
         $sql='SELECT n.*,s.ad ogrenci_adi,s.soyad ogrenci_soyad,u.ad ogretmen_adi,u.soyad ogretmen_soyad FROM teacher_notes n JOIN students s ON s.id=n.student_id JOIN users u ON u.id=n.ogretmen_id WHERE s.institution_id=?';
         $params=[$inst];
         if($p['rol']==='ogretmen'){$sql.=' AND n.ogretmen_id=?';$params[]=$p['sub'];}
-        if($p['rol']==='veli'){$sql.=' AND s.veli_id=? AND n.veliye_gorunsun=1';$params[]=$p['sub'];}
+        if($p['rol']==='veli'){$sql.=' AND n.veliye_gorunsun=1 AND 1=0';} // veli_id kolonu yok
         if(!empty($_GET['student_id'])){$sql.=' AND n.student_id=?';$params[]=(int)$_GET['student_id'];}
         if(isset($_GET['is_read'])){$sql.=' AND n.is_read=?';$params[]=(int)$_GET['is_read'];}
         ok(['data'=>q($sql.' ORDER BY n.olusturma DESC LIMIT 100',$params)]);
@@ -573,11 +575,11 @@ function rBildirim(string $m,string $sub,?int $id):void{
 
     if($m==='POST'&&$sub==='gonder'){
         $b=body();if(!$b['student_id']||!$b['mesaj']||!$b['kanal'])err('Zorunlu alanlar eksik');
-        $s=qOne('SELECT s.*,u.telefon veli_tel FROM students s LEFT JOIN users u ON u.id=s.veli_id WHERE s.id=?',[(int)$b['student_id']]);
+        $s=qOne('SELECT s.* FROM students s WHERE s.id=?',[(int)$b['student_id']]);
         if(!$s)err('Ögrenci bulunamadi',404);
         $tercih=$s['bildirim_tercih']??'baba';
         $tel=$tercih==='anne'?($s['anne_tel']??null):($s['baba_tel']??null);
-        if(!$tel)$tel=$s['anne_tel']??$s['baba_tel']??$s['veli_tel']??null;
+        if(!$tel)$tel=$s['anne_tel']??$s['baba_tel']??null;
         if(!$tel)err('Veli telefonu tanimli degil',422);
         $mesaj=fillTemplate($b['mesaj'],['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['adi'],'telefon'=>$okul['telefon'],'mesaj'=>$b['mesaj']]);
         ok(gonderBildirim((int)$b['student_id'],$tel,$mesaj,$b['sablon_tipi']??'genel',$b['kanal'],$p['sub'],$inst));
