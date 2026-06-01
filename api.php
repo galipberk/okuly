@@ -3,7 +3,20 @@
 //  api.php v3 — Okul Yönetim Sistemi REST API
 // ============================================================
 date_default_timezone_set('Europe/Istanbul');
-error_reporting(0);
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // ekrana basma, yakala
+set_error_handler(function($no,$str,$file,$line){
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['ok'=>false,'message'=>"PHP Hata: $str (satir $line)"]);
+    exit;
+});
+set_exception_handler(function($e){
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['ok'=>false,'message'=>$e->getMessage(),'trace'=>substr($e->getTraceAsString(),0,500)]);
+    exit;
+});
 $CFG = require __DIR__ . '/config.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -25,9 +38,9 @@ function get(string $k,$d=null){return $_GET[$k]??$d;}
 function db():PDO{
     static $p=null; if($p)return $p;
     global $CFG; $d=$CFG['db'];
-    if(empty($d['name'])||empty($d['user'])) err('DB yapılandırılmamış.',503);
+    if(empty($d['name'])||empty($d['user'])) err('DB yapilandirilmamis.',503);
     try{$p=new PDO("mysql:host={$d['host']};port={$d['port']};dbname={$d['name']};charset=utf8mb4",$d['user'],$d['pass'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);}
-    catch(\PDOException $e){err('DB hatası: '.$e->getMessage(),500);}
+    catch(\PDOException $e){err('DB hatasi: '.$e->getMessage(),500);}
     return $p;
 }
 function q(string $sql,array $p=[]):array{$s=db()->prepare($sql);$s->execute($p);return $s->fetchAll();}
@@ -54,7 +67,7 @@ function getToken():string{
 }
 function auth(array $roles=[]):array{
     $t=getToken();if(!$t)err('Oturum gerekli',401);
-    $p=tokenVerify($t);if(!$p)err('Oturum süresi doldu',401);
+    $p=tokenVerify($t);if(!$p)err('Oturum suresi doldu',401);
     if($roles&&!in_array($p['rol'],$roles))err('Yetki yok ('.$p['rol'].')',403);
     return $p;
 }
@@ -68,7 +81,7 @@ function setSetting(int $inst,string $key,string $val):void{
     qRun('INSERT INTO institution_settings (institution_id,setting_key,setting_value) VALUES (?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)',[$inst,$key,$val]);
 }
 function getOkulInfo(int $inst):array{
-    return ['adi'=>getSetting($inst,'okul_adi','Eğitim Kurumunuz'),'telefon'=>getSetting($inst,'telefon','04622234466'),'whatsapp'=>getSetting($inst,'whatsapp','04622234466'),'email'=>getSetting($inst,'email',''),'adres'=>getSetting($inst,'adres',''),'devamsizlik_limit_normal'=>(int)getSetting($inst,'devamsizlik_limit_normal','4'),'devamsizlik_limit_mazeret'=>(int)getSetting($inst,'devamsizlik_limit_mazeret','4'),'devamsizlik_uyari_gun'=>(int)getSetting($inst,'devamsizlik_uyari_gun','3')];
+    return ['adi'=>getSetting($inst,'okul_adi','Egitim Kurumunuz'),'telefon'=>getSetting($inst,'telefon','04622234466'),'whatsapp'=>getSetting($inst,'whatsapp','04622234466'),'email'=>getSetting($inst,'email',''),'adres'=>getSetting($inst,'adres',''),'devamsizlik_limit_normal'=>(int)getSetting($inst,'devamsizlik_limit_normal','4'),'devamsizlik_limit_mazeret'=>(int)getSetting($inst,'devamsizlik_limit_mazeret','4'),'devamsizlik_uyari_gun'=>(int)getSetting($inst,'devamsizlik_uyari_gun','3')];
 }
 
 // ── Şablon doldur ──────────────────────────────────────────
@@ -114,25 +127,25 @@ function rAuth(string $m,string $s):void{
     global $CFG;
     if($m==='POST'&&$s==='giris'){
         $b=body();$e=trim($b['email']??'');$p=$b['sifre']??'';
-        if(!$e||!$p)err('E-posta ve şifre gerekli');
+        if(!$e||!$p)err('E-posta ve sifre gerekli');
         $u=qOne('SELECT * FROM users WHERE email=? AND aktif=1',[$e]);
-        if(!$u||!password_verify($p,$u['sifre']))err('Hatalı e-posta veya şifre',401);
+        if(!$u||!password_verify($p,$u['sifre']))err('Hatali e-posta veya sifre',401);
         $mob=($b['platform']??'')==='mobile';
         $exp=time()+($mob?$CFG['token']['mobile']:$CFG['token']['web']);
         $tok=tokenCreate(['sub'=>$u['id'],'email'=>$u['email'],'rol'=>$u['rol'],'inst'=>$u['institution_id']??1,'exp'=>$exp]);
         qRun('UPDATE users SET son_giris=? WHERE id=?',[now_str(),$u['id']]);
         setcookie('okul_token',$tok,['expires'=>$exp,'path'=>'/','samesite'=>'Lax']);
-        ok(['token'=>$tok,'expires'=>$exp,'user'=>['id'=>$u['id'],'ad'=>$u['ad'],'soyad'=>$u['soyad'],'email'=>$u['email'],'rol'=>$u['rol']]],'Giriş başarılı');
+        ok(['token'=>$tok,'expires'=>$exp,'user'=>['id'=>$u['id'],'ad'=>$u['ad'],'soyad'=>$u['soyad'],'email'=>$u['email'],'rol'=>$u['rol']]],'Giris basarili');
     }
-    if(in_array($m,['POST','GET'])&&$s==='cikis'){setcookie('okul_token','',time()-3600,'/');ok(null,'Çıkış yapıldı');}
+    if(in_array($m,['POST','GET'])&&$s==='cikis'){setcookie('okul_token','',time()-3600,'/');ok(null,'Çikis yapildi');}
     if($m==='GET'&&$s==='profil'){$p=auth();ok(qOne('SELECT id,ad,soyad,email,telefon,rol FROM users WHERE id=?',[$p['sub']]));}
     if($m==='PUT'&&$s==='sifre-degistir'){
         $p=auth();$b=body();
         if(strlen($b['yeni']??'')<8)err('Şifre en az 8 karakter');
         $u=qOne('SELECT sifre FROM users WHERE id=?',[$p['sub']]);
-        if(!password_verify($b['mevcut']??'',$u['sifre']))err('Mevcut şifre hatalı',401);
+        if(!password_verify($b['mevcut']??'',$u['sifre']))err('Mevcut sifre hatali',401);
         qRun('UPDATE users SET sifre=? WHERE id=?',[password_hash($b['yeni'],PASSWORD_BCRYPT,['cost'=>10]),$p['sub']]);
-        ok(null,'Şifre güncellendi');
+        ok(null,'Şifre guncellendi');
     }
     err("Auth endpoint yok: $s",404);
 }
@@ -145,19 +158,19 @@ function rDashboard(string $m,string $s):void{
     $okul=getOkulInfo($inst);
 
     if($m==='GET'&&!$s){
-        // Öğrenci istatistikleri — 3 kart
+        // Ögrenci istatistikleri — 3 kart
         $egitim=qOne('SELECT COUNT(*) c FROM students WHERE institution_id=? AND ogrenci_turu="egitim" AND aktif=1',[$inst]);
         $proje=qOne('SELECT COUNT(*) c FROM students WHERE institution_id=? AND ogrenci_turu="proje" AND aktif=1',[$inst]);
-        $toplam=qOne('SELECT COUNT(*) c FROM students WHERE institution_id=?',[$inst]);
+        $toplam=qOne('SELECT COUNT(*) c FROM students WHERE institution_id=? AND aktif=1',[$inst]);
 
-        // Bugün devamsız
-        $bugün_dev=qOne('SELECT COUNT(DISTINCT student_id) c FROM attendance a JOIN students s ON s.id=a.student_id WHERE s.institution_id=? AND a.tarih=? AND a.durum="gelmedi"',[$inst,today_str()]);
+        // Bugun devamsiz
+        $bugun_dev=qOne('SELECT COUNT(DISTINCT student_id) c FROM attendance a JOIN students s ON s.id=a.student_id WHERE s.institution_id=? AND a.tarih=? AND a.durum="gelmedi"',[$inst,today_str()]);
 
         // Bildirim istatistikleri
         $bil_ay=qOne("SELECT COUNT(*) c FROM notification_logs WHERE institution_id=? AND (durum='sent' OR durum='manuel_gonderildi') AND MONTH(olusturma)=MONTH(NOW())",[$inst]);
         $bil_bas=qOne("SELECT COUNT(*) c FROM notification_logs WHERE institution_id=? AND durum='failed'",[$inst]);
 
-        // Kritik devamsızlık (>=3 gelmedi VEYA >=3 mazeretli)
+        // Kritik devamsizlik (>=3 gelmedi VEYA >=3 mazeretli)
         $limit_u=(int)$okul['devamsizlik_uyari_gun'];
         $kritik=q('SELECT s.id,s.ad,s.soyad,s.ogrenci_no,
                    SUM(a.durum="gelmedi") AS gelmedi,
@@ -170,7 +183,7 @@ function rDashboard(string $m,string $s):void{
                    ORDER BY gelmedi DESC, mazeretli DESC',
             [$inst,$limit_u,$limit_u]);
 
-        // Okunmamış öğretmen notları
+        // Okunmamis ogretmen notlari
         $okunmamis=q('SELECT n.*,s.ad ogrenci_adi,s.soyad ogrenci_soyad,u.ad ogretmen_adi,u.soyad ogretmen_soyad
                       FROM teacher_notes n
                       JOIN students s ON s.id=n.student_id
@@ -185,7 +198,7 @@ function rDashboard(string $m,string $s):void{
                  WHERE s.institution_id=? GROUP BY a.student_id HAVING oran>=30 ORDER BY oran DESC LIMIT 5',[$inst]);
 
         ok([
-            'istatistik'=>['egitim_ogrenci'=>(int)$egitim['c'],'proje_ogrenci'=>(int)$proje['c'],'toplam_ogrenci'=>(int)$toplam['c'],'devamsiz_bugun'=>(int)$bugün_dev['c'],'bildirim_bu_ay'=>(int)$bil_ay['c'],'basarisiz_bildirim'=>(int)$bil_bas['c']],
+            'istatistik'=>['egitim_ogrenci'=>(int)$egitim['c'],'proje_ogrenci'=>(int)$proje['c'],'toplam_ogrenci'=>(int)$toplam['c'],'devamsiz_bugun'=>(int)$bugun_dev['c'],'bildirim_bu_ay'=>(int)$bil_ay['c'],'basarisiz_bildirim'=>(int)$bil_bas['c']],
             'kritik_devamsizlik'=>$kritik,
             'okunmamis_notlar'=>$okunmamis,
             'risk_listesi'=>$risk,
@@ -214,7 +227,7 @@ function rDashboard(string $m,string $s):void{
 }
 
 // ============================================================
-//  AYARLAR (Kurum Bilgileri + Sınıf CRUD)
+//  AYARLAR (Kurum Bilgileri + Sinif CRUD)
 // ============================================================
 function rAyarlar(string $m,string $s):void{
     $p=auth(['admin']);$inst=$p['inst']??1;
@@ -229,7 +242,7 @@ function rAyarlar(string $m,string $s):void{
         $b=body();
         $keys=['okul_adi','telefon','whatsapp','email','adres','devamsizlik_limit_normal','devamsizlik_limit_mazeret','devamsizlik_uyari_gun'];
         foreach($keys as $k) if(isset($b[$k])) setSetting($inst,$k,(string)$b[$k]);
-        // config.php'deki okul bilgilerini de güncelle
+        // config.php'deki okul bilgilerini de guncelle
         $cfg_file=__DIR__.'/config.php';
         if(file_exists($cfg_file)&&isset($b['okul_adi'])){
             $cfg=file_get_contents($cfg_file);
@@ -252,20 +265,20 @@ function rSiniflar(string $m,?int $id):void{
     if($m==='GET'&&$id){ok(qOne('SELECT * FROM siniflar WHERE id=? AND institution_id=?',[$id,$inst]));}
     if($m==='POST'){
         auth(['admin']);$b=body();
-        if(!$b['ad'])err('Sınıf adı gerekli');
-        ok(['id'=>qRun('INSERT INTO siniflar (institution_id,ad,donem,kapasite) VALUES (?,?,?,?)',[$inst,strtoupper(trim($b['ad'])),$b['donem']??date('Y').'-'.(date('Y')+1),$b['kapasite']??40])],'Sınıf eklendi',201);
+        if(!$b['ad'])err('Sinif adi gerekli');
+        ok(['id'=>qRun('INSERT INTO siniflar (institution_id,ad,donem,kapasite) VALUES (?,?,?,?)',[$inst,strtoupper(trim($b['ad'])),$b['donem']??date('Y').'-'.(date('Y')+1),$b['kapasite']??40])],'Sinif eklendi',201);
     }
     if($m==='PUT'&&$id){
         auth(['admin']);$b=body();
         qRun('UPDATE siniflar SET ad=?,donem=?,kapasite=? WHERE id=? AND institution_id=?',[strtoupper(trim($b['ad']??'')),$b['donem']??date('Y').'-'.(date('Y')+1),$b['kapasite']??40,$id,$inst]);
-        ok(null,'Güncellendi');
+        ok(null,'Guncellendi');
     }
     if($m==='DELETE'&&$id){
         auth(['admin']);
         $check=qOne('SELECT COUNT(*) c FROM students WHERE sinif_id=? AND aktif=1',[$id]);
-        if(($check['c']??0)>0)err('Bu sınıfta aktif öğrenci var, silinemez',409);
+        if(($check['c']??0)>0)err('Bu sinifta aktif ogrenci var, silinemez',409);
         qRun('UPDATE siniflar SET aktif=0 WHERE id=? AND institution_id=?',[$id,$inst]);
-        ok(null,'Sınıf silindi');
+        ok(null,'Sinif silindi');
     }
     err('Endpoint yok',404);
 }
@@ -295,38 +308,46 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
     $p=auth();$inst=$p['inst']??1;
 
     if($m==='GET'&&!$id){
-        // mezun grubu için grup parametresi
         $grupFilter=get('grup','');
+        $params=[$inst];
+        if($grupFilter==='mezun'){
+            // mezun sutunu yoksa bos liste don — hata verme
+            try{
+                $sql='SELECT s.*,si.ad sinif_adi,
+                      0 devamsizlik_orani, 0 gelmedi_sayi, 0 mazeret_sayi,
+                      u2.ad danisman_adi, u2.soyad danisman_soyad
+                      FROM students s
+                      LEFT JOIN siniflar si ON si.id=s.sinif_id
+                      LEFT JOIN users u2 ON u2.id=s.danisman_id
+                      WHERE s.institution_id=? AND s.aktif=0 AND s.mezun=1
+                      ORDER BY s.mezuniyet_yili DESC, s.soyad, s.ad';
+                ok(q($sql,$params));
+            }catch(\PDOException $e){ok([]);}
+        }
         $sql='SELECT s.*,si.ad sinif_adi,
-              IFNULL(ROUND(SUM(CASE WHEN a.durum="gelmedi" THEN 1 ELSE 0 END)/NULLIF(COUNT(a.id),0)*100,1),0) devamsizlik_orani,
-              SUM(CASE WHEN a.durum="gelmedi" THEN 1 ELSE 0 END) gelmedi_sayi,
-              SUM(CASE WHEN a.durum="mazeretli" THEN 1 ELSE 0 END) mazeret_sayi,
+              COALESCE(ROUND(SUM(CASE WHEN a.durum="gelmedi" THEN 1 ELSE 0 END)/NULLIF(COUNT(a.id),0)*100,1),0) devamsizlik_orani,
+              COALESCE(SUM(CASE WHEN a.durum="gelmedi" THEN 1 ELSE 0 END),0) gelmedi_sayi,
+              COALESCE(SUM(CASE WHEN a.durum="mazeretli" THEN 1 ELSE 0 END),0) mazeret_sayi,
               u2.ad danisman_adi, u2.soyad danisman_soyad
               FROM students s
               LEFT JOIN siniflar si ON si.id=s.sinif_id
               LEFT JOIN attendance a ON a.student_id=s.id
               LEFT JOIN users u2 ON u2.id=s.danisman_id
-              WHERE s.institution_id=?';
-        $params=[$inst];
-        if($grupFilter==='mezun'){
-            $sql.=' AND s.aktif=0 AND s.mezun=1';
-        } else {
-            $sql.=' AND s.aktif=1';
-        }
+              WHERE s.institution_id=? AND s.aktif=1';
         if(!empty($_GET['tur'])){$sql.=' AND s.ogrenci_turu=?';$params[]=$_GET['tur'];}
         if(!empty($_GET['sinif_id'])){$sql.=' AND s.sinif_id=?';$params[]=(int)$_GET['sinif_id'];}
         if(!empty($_GET['q'])){$sql.=' AND (s.ad LIKE ? OR s.soyad LIKE ? OR s.tc_no LIKE ? OR s.ogrenci_no LIKE ?)';$qq='%'.$_GET['q'].'%';array_push($params,$qq,$qq,$qq,$qq);}
         $sql.=' GROUP BY s.id';
-        $sort=$_GET['sort']??'soyad';
-        $dir=strtoupper($_GET['dir']??'ASC')==='DESC'?'DESC':'ASC';
         $allowed_sorts=['soyad','okul_adi','odeme_durumu','devamsizlik_orani','gelmedi_sayi'];
-        $sql.=' ORDER BY '.($allowed_sorts[array_search($sort,$allowed_sorts)]!==false?$sort:'soyad')." $dir, s.ad";
+        $sort=in_array($_GET['sort']??'',$allowed_sorts)?$_GET['sort']:'soyad';
+        $dir=strtoupper($_GET['dir']??'ASC')==='DESC'?'DESC':'ASC';
+        $sql.=" ORDER BY $sort $dir, s.ad";
         ok(q($sql,$params));
     }
 
     if($m==='GET'&&$id){
-        $s=qOne('SELECT s.*,si.ad sinif_adi FROM students s JOIN siniflar si ON si.id=s.sinif_id WHERE s.id=? AND s.institution_id=?',[$id,$inst]);
-        if(!$s)err('Öğrenci bulunamadı',404);
+        $s=qOne('SELECT s.*,si.ad sinif_adi FROM students s LEFT JOIN siniflar si ON si.id=s.sinif_id WHERE s.id=? AND s.institution_id=?',[$id,$inst]);
+        if(!$s)err('Ögrenci bulunamadi',404);
         ok($s);
     }
 
@@ -337,11 +358,11 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
         try{
             $nid=qRun('INSERT INTO students (institution_id,sinif_id,ogrenci_turu,danisman_id,ogrenci_no,tc_no,kurum_no,ad,soyad,dogum_tarihi,cinsiyet,okul_adi,anne_adi,anne_tel,baba_adi,baba_tel,bildirim_tercih,acil_tel,saglik_notu,adres,yarisma_turu,yarisma_alani,odeme_durumu,kayit_tutari,odeme_notu) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 [$inst,$b['sinif_id']??null,$b['ogrenci_turu']??'egitim',$b['danisman_id']??null,$no,$b['tc_no']??null,$no,$b['ad'],$b['soyad'],$b['dogum_tarihi']??null,$b['cinsiyet']??null,$b['okul_adi']??null,$b['anne_adi']??null,$b['anne_tel']??null,$b['baba_adi']??null,$b['baba_tel']??null,$b['bildirim_tercih']??'baba',$b['acil_tel']??null,$b['saglik_notu']??null,$b['adres']??null,$b['yarisma_turu']??null,$b['yarisma_alani']??null,$b['odeme_durumu']??'bekliyor',$b['kayit_tutari']??0,$b['odeme_notu']??null]);
-            ok(['id'=>$nid,'ogrenci_no'=>$no],'Öğrenci eklendi',201);
+            ok(['id'=>$nid,'ogrenci_no'=>$no],'Ögrenci eklendi',201);
         }catch(\PDOException $e){
             if(str_contains($e->getMessage(),'Unknown column')){
                 $nid=qRun('INSERT INTO students (institution_id,sinif_id,ogrenci_no,ad,soyad,dogum_tarihi,cinsiyet,acil_tel,saglik_notu) VALUES (?,?,?,?,?,?,?,?,?)',[$inst,$b['sinif_id']??null,$no,$b['ad'],$b['soyad'],$b['dogum_tarihi']??null,$b['cinsiyet']??null,$b['acil_tel']??null,$b['saglik_notu']??null]);
-                ok(['id'=>$nid,'ogrenci_no'=>$no,'uyari'=>'schema_v3.sql çalıştırılmamış — bazı alanlar kaydedilmedi'],'Öğrenci eklendi (kısmi)',201);
+                ok(['id'=>$nid,'ogrenci_no'=>$no,'uyari'=>'schema_v3.sql calistirilmamis — bazı alanlar kaydedilmedi'],'Öğrenci eklendi (kısmi)',201);
             }
             err('DB hatası: '.$e->getMessage(),500);
         }
@@ -352,7 +373,7 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
         $FIELDS=['sinif_id','ogrenci_turu','danisman_id','tc_no','kurum_no','ad','soyad','dogum_tarihi','cinsiyet','okul_adi','anne_adi','anne_tel','baba_adi','baba_tel','bildirim_tercih','acil_tel','saglik_notu','adres','yarisma_turu','yarisma_alani','odeme_durumu','kayit_tutari','odeme_notu'];
         $set=[];$vals=[];foreach($FIELDS as $f) if(array_key_exists($f,$b)){$set[]="$f=?";$vals[]=$b[$f];}
         if($set){try{$vals[]=$id;qRun('UPDATE students SET '.implode(',',$set).' WHERE id=?',$vals);}catch(\PDOException $e){$temel=['sinif_id','ad','soyad','dogum_tarihi','cinsiyet','acil_tel','saglik_notu'];$s2=[];$v2=[];foreach($temel as $f) if(array_key_exists($f,$b)){$s2[]="$f=?";$v2[]=$b[$f];}if($s2){$v2[]=$id;qRun('UPDATE students SET '.implode(',',$s2).' WHERE id=?',$v2);}}}
-        ok(null,'Güncellendi');
+        ok(null,'Guncellendi');
     }
 
     if($m==='DELETE'&&$id){auth(['admin']);qRun('UPDATE students SET aktif=0 WHERE id=?',[$id]);ok(null,'Silindi');}
@@ -419,7 +440,7 @@ function rDevamsizlik(string $m,?int $id,string $sub):void{
         ok(['data'=>q($sql,$params)]);
     }
 
-    // Toplu giriş
+    // Toplu giris
     if($m==='POST'&&$sub==='toplu'){
         $b=body();
         if(!$b['tarih']||!$b['kayitlar'])err('tarih ve kayitlar gerekli');
@@ -433,7 +454,7 @@ function rDevamsizlik(string $m,?int $id,string $sub):void{
             if(in_array($durum,['gelmedi','mazeretli'])) $bildirimler[]=['id'=>(int)$k['student_id'],'durum'=>$durum];
         }
         foreach($bildirimler as $bl) gonderDevamsizlikBildirim($bl['id'],$b['tarih'],$bl['durum'],$p['sub'],$inst,$okul);
-        ok(['eklenen'=>$eklenen,'bildirim_sayisi'=>count($bildirimler)],'Devamsızlık kaydedildi');
+        ok(['eklenen'=>$eklenen,'bildirim_sayisi'=>count($bildirimler)],'Devamsizlik kaydedildi');
     }
 
     if($m==='POST'){
@@ -444,7 +465,7 @@ function rDevamsizlik(string $m,?int $id,string $sub):void{
         ok(null,'Kaydedildi',201);
     }
 
-    if($m==='PUT'&&$id){$b=body();qRun('UPDATE attendance SET durum=?,not_=? WHERE id=?',[$b['durum']??'geldi',$b['not_']??null,$id]);ok(null,'Güncellendi');}
+    if($m==='PUT'&&$id){$b=body();qRun('UPDATE attendance SET durum=?,not_=? WHERE id=?',[$b['durum']??'geldi',$b['not_']??null,$id]);ok(null,'Guncellendi');}
     if($m==='DELETE'&&$id){qRun('DELETE FROM attendance WHERE id=?',[$id]);ok(null,'Silindi');}
 
     if($m==='GET'&&$sub==='ozet'){
@@ -465,17 +486,17 @@ function gonderDevamsizlikBildirim(int $sid,string $tarih,string $durum,int $gir
 
     $sablon_kod=$durum==='mazeretli'?'mazeretli':'devamsizlik';
     $sablon=qOne('SELECT icerik FROM message_templates WHERE institution_id=? AND kod=?',[$inst,$sablon_kod]);
-    $icerik=$sablon?$sablon['icerik']:"Sayın Velimiz,\n{$s['ad']} {$s['soyad']} öğrenciniz $tarih tarihinde derse $durum sayılmıştır.\n{$okul['adi']}\n📞 {$okul['telefon']}";
+    $icerik=$sablon?$sablon['icerik']:"Sayin Velimiz,\n{$s['ad']} {$s['soyad']} ogrenciniz $tarih tarihinde derse $durum sayilmistir.\n{$okul['adi']}\n📞 {$okul['telefon']}";
     $veli_adi=$tercih==='anne'?$s['anne_adi']:$s['baba_adi'];
     $mesaj=fillTemplate($icerik,['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['adi'],'telefon'=>$okul['telefon'],'veli_adi'=>$veli_adi??'Velimiz']);
     gonderBildirim($sid,$tel,$mesaj,$sablon_kod,'whatsapp',$giren,$inst);
 
-    // Kritik uyarı — limit kontrol
+    // Kritik uyari — limit kontrol
     $stats=qOne('SELECT SUM(durum="gelmedi") g,SUM(durum="mazeretli") m FROM attendance WHERE student_id=?',[$sid]);
     $limit_u=(int)($okul['devamsizlik_uyari_gun']??3);
     if(($stats['g']??0)>=$limit_u||($stats['m']??0)>=$limit_u){
         $krit_sab=qOne('SELECT icerik FROM message_templates WHERE institution_id=? AND kod="kritik"',[$inst]);
-        $km=$krit_sab?fillTemplate($krit_sab['icerik'],['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['adi'],'telefon'=>$okul['telefon']]):"⚠️ {$s['ad']} {$s['soyad']} öğrencinizin devamsızlık sayısı sınıra yaklaştı.";
+        $km=$krit_sab?fillTemplate($krit_sab['icerik'],['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['adi'],'telefon'=>$okul['telefon']]):"⚠️ {$s['ad']} {$s['soyad']} ogrencinizin devamsizlik sayisi sinira yaklasti.";
         gonderBildirim($sid,$tel,$km,'kritik','whatsapp',$giren,$inst);
     }
 }
@@ -517,22 +538,22 @@ function rOgretmenNot(string $m,?int $id,string $sub):void{
     }
 
     if($m==='POST'){
-        $b=body();if(!$b['student_id']||!$b['icerik'])err('Öğrenci ve içerik gerekli');
+        $b=body();if(!$b['student_id']||!$b['icerik'])err('Ögrenci ve icerik gerekli');
         $nid=qRun('INSERT INTO teacher_notes (student_id,ogretmen_id,baslik,icerik,kategori,onem,veliye_gorunsun,is_read,olusturma) VALUES (?,?,?,?,?,?,?,0,?)',[(int)$b['student_id'],$p['sub'],$b['baslik']??null,$b['icerik'],$b['kategori']??'genel',$b['onem']??'normal',isset($b['veliye_gorunsun'])?(int)$b['veliye_gorunsun']:1,now_str()]);
         ok(['id'=>$nid],'Not eklendi',201);
     }
 
-    // Okundu işaretle
+    // Okundu isaretle
     if($m==='PUT'&&$id&&$sub==='okundu'){
         qRun('UPDATE teacher_notes SET is_read=1,read_at=?,read_by=? WHERE id=?',[now_str(),$p['sub'],$id]);
-        ok(null,'Okundu olarak işaretlendi');
+        ok(null,'Okundu olarak isaretlendi');
     }
 
     if($m==='PUT'&&$id){
         $b=body();$set=[];$vals=[];
         foreach(['baslik','icerik','kategori','onem','veliye_gorunsun','is_read'] as $f) if(array_key_exists($f,$b)){$set[]="$f=?";$vals[]=$b[$f];}
         if($set){$vals[]=$id;qRun('UPDATE teacher_notes SET '.implode(',',$set).' WHERE id=?',$vals);}
-        ok(null,'Güncellendi');
+        ok(null,'Guncellendi');
     }
 
     if($m==='DELETE'&&$id){
@@ -553,11 +574,11 @@ function rBildirim(string $m,string $sub,?int $id):void{
     if($m==='POST'&&$sub==='gonder'){
         $b=body();if(!$b['student_id']||!$b['mesaj']||!$b['kanal'])err('Zorunlu alanlar eksik');
         $s=qOne('SELECT s.*,u.telefon veli_tel FROM students s LEFT JOIN users u ON u.id=s.veli_id WHERE s.id=?',[(int)$b['student_id']]);
-        if(!$s)err('Öğrenci bulunamadı',404);
+        if(!$s)err('Ögrenci bulunamadi',404);
         $tercih=$s['bildirim_tercih']??'baba';
         $tel=$tercih==='anne'?($s['anne_tel']??null):($s['baba_tel']??null);
         if(!$tel)$tel=$s['anne_tel']??$s['baba_tel']??$s['veli_tel']??null;
-        if(!$tel)err('Veli telefonu tanımlı değil',422);
+        if(!$tel)err('Veli telefonu tanimli degil',422);
         $mesaj=fillTemplate($b['mesaj'],['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['adi'],'telefon'=>$okul['telefon'],'mesaj'=>$b['mesaj']]);
         ok(gonderBildirim((int)$b['student_id'],$tel,$mesaj,$b['sablon_tipi']??'genel',$b['kanal'],$p['sub'],$inst));
     }
@@ -572,16 +593,16 @@ function rBildirim(string $m,string $sub,?int $id):void{
         ok(['data'=>$rows]);
     }
 
-    // Manuel gönderildi olarak işaretle
+    // Manuel gonderildi olarak isaretle
     if($m==='PUT'&&$sub==='manuel'&&$id){
         qRun("UPDATE notification_logs SET durum='manuel_gonderildi' WHERE id=?",[$id]);
-        ok(null,'Manuel gönderildi olarak işaretlendi');
+        ok(null,'Manuel gonderildi olarak isaretlendi');
     }
 
     if($m==='POST'&&$sub==='tekrar-gonder'){
         $b=body();if(!$b['log_id'])err('log_id gerekli');
         $log=qOne('SELECT * FROM notification_logs WHERE id=?',[(int)$b['log_id']]);
-        if(!$log)err('Log bulunamadı',404);
+        if(!$log)err('Log bulunamadi',404);
         ok(gonderBildirim((int)$log['student_id'],$log['veli_telefon'],$log['mesaj'],$log['sablon_tipi'],$log['kanal'],$p['sub'],$inst));
     }
     err('Endpoint yok',404);
@@ -604,7 +625,7 @@ function gonderBildirim(int $sid,string $tel,string $mesaj,string $sablon,string
             $nd=strlen($digits)===12?substr($digits,2):$digits;
             $r=@file_get_contents('https://api.netgsm.com.tr/sms/send/get?'.http_build_query(['usercode'=>$CFG['netgsm']['user'],'password'=>$CFG['netgsm']['pass'],'gsmno'=>$nd,'message'=>$mesaj,'msgheader'=>$CFG['netgsm']['header'],'dil'=>'TR']));
             $api=$r??'';$durum=str_starts_with(trim($r??''),'00')?'sent':'failed';
-        }else{$durum='pending';$api='API ayarlanmamış';}
+        }else{$durum='pending';$api='API ayarlanmamis';}
     }catch(\Throwable $e){$durum='failed';$api=$e->getMessage();}
     qRun('UPDATE notification_logs SET durum=?,api_response=?,gonderim_tarihi=? WHERE id=?',[$durum,substr($api,0,500),now_str(),$lid]);
     return['durum'=>$durum,'log_id'=>$lid];
@@ -624,7 +645,7 @@ function rSablonlar(string $m,?int $id):void{
     if($m==='PUT'&&$id){
         auth(['admin']);$b=body();
         qRun('UPDATE message_templates SET baslik=?,icerik=? WHERE id=? AND institution_id=?',[$b['baslik']??'',$b['icerik']??'',$id,$inst]);
-        ok(null,'Güncellendi');
+        ok(null,'Guncellendi');
     }
     if($m==='DELETE'&&$id){auth(['admin']);qRun('DELETE FROM message_templates WHERE id=? AND institution_id=?',[$id,$inst]);ok(null,'Silindi');}
     err('Endpoint yok',404);
@@ -660,10 +681,10 @@ function rKullanicilar(string $m,?int $id,string $sub):void{
     if($m==='POST'){
         auth(['admin']);$b=body();
         foreach(['ad','soyad','email','sifre','rol'] as $f) if(empty($b[$f]))err("$f gerekli");
-        if(!in_array($b['rol'],['admin','ogretmen','veli','muhasebe']))err('Geçersiz rol');
-        if(qOne('SELECT id FROM users WHERE email=?',[$b['email']]))err('E-posta zaten kayıtlı',409);
+        if(!in_array($b['rol'],['admin','ogretmen','veli','muhasebe']))err('Gecersiz rol');
+        if(qOne('SELECT id FROM users WHERE email=?',[$b['email']]))err('E-posta zaten kayitli',409);
         $nid=qRun('INSERT INTO users (institution_id,ad,soyad,email,telefon,sifre,rol,aktif) VALUES (?,?,?,?,?,?,?,1)',[$inst,$b['ad'],$b['soyad'],$b['email'],$b['telefon']??null,password_hash($b['sifre'],PASSWORD_BCRYPT,['cost'=>10]),$b['rol']]);
-        ok(['id'=>$nid],'Kullanıcı eklendi',201);
+        ok(['id'=>$nid],'Kullanici eklendi',201);
     }
 
     if($m==='PUT'&&$id){
@@ -672,25 +693,25 @@ function rKullanicilar(string $m,?int $id,string $sub):void{
         $set=[];$vals=[];foreach($allowed as $f) if(array_key_exists($f,$b)){$set[]="$f=?";$vals[]=$b[$f];}
         if(!empty($b['sifre'])&&strlen($b['sifre'])>=8){$set[]='sifre=?';$vals[]=password_hash($b['sifre'],PASSWORD_BCRYPT,['cost'=>10]);}
         if($set){$vals[]=$id;$vals[]=$inst;qRun('UPDATE users SET '.implode(',',$set).' WHERE id=? AND institution_id=?',$vals);}
-        ok(null,'Güncellendi');
+        ok(null,'Guncellendi');
     }
 
     // Aktif Et / Deaktif Et toggle
     if($m==='PUT'&&$id&&$sub==='toggle-aktif'){
         auth(['admin']);
         $u=qOne('SELECT aktif FROM users WHERE id=?',[$id]);
-        if(!$u)err('Kullanıcı bulunamadı',404);
+        if(!$u)err('Kullanici bulunamadi',404);
         $yeni=($u['aktif']?0:1);
         qRun('UPDATE users SET aktif=? WHERE id=? AND institution_id=?',[$yeni,$id,$inst]);
-        ok(['aktif'=>$yeni],$yeni?'Kullanıcı aktif edildi':'Kullanıcı devre dışı bırakıldı');
+        ok(['aktif'=>$yeni],$yeni?'Kullanici aktif edildi':'Kullanici devre disi birakildi');
     }
 
-    // Kalıcı sil
+    // Kalici sil
     if($m==='DELETE'&&$id){
         auth(['admin']);
         if($p['sub']===$id)err('Kendinizi silemezsiniz',422);
         qRun('DELETE FROM users WHERE id=? AND institution_id=?',[$id,$inst]);
-        ok(null,'Kullanıcı silindi');
+        ok(null,'Kullanici silindi');
     }
     err('Endpoint yok',404);
 }

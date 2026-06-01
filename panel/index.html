@@ -230,6 +230,7 @@ a{color:var(--acc);text-decoration:none}
 
     <div class="cnt">
       <div v-if="loading&&!ready" class="lw"><div class="ls"></div>Yükleniyor…</div>
+      <div v-else-if="!ready" class="lw"><div class="ls"></div>Bağlanıyor…</div>
 
       <!-- ══════ DASHBOARD ══════ -->
       <template v-else-if="page==='dashboard'">
@@ -957,11 +958,11 @@ createApp({
       return cfg;
     });
     http.interceptors.response.use(r=>r,e=>{
-      const msg=e.response?.data?.message||'';
+      const msg=e.response?.data?.message || e?.message || '';
       if(e.response?.status===401&&(msg.includes('Oturum')||msg.includes('token')||msg.includes('süresi')))doLogout();
       return Promise.reject(e);
     });
-    function api(m,p,d=null,params=null){const c={method:m,url:'/'+p.replace(/^\//,'')};if(d)c.data=d;if(params)c.params=params;return http(c);}
+    async function api(m,p,d=null,params=null){const c={method:m,url:'/'+p.replace(/^\//,'')};if(d)c.data=d;if(params)c.params=params;const r=await http(c);return r.data;}
 
     const toasts=ref([]);
     function toast(msg,type='ok'){const id=Date.now()+Math.random();toasts.value.push({id,msg,type});setTimeout(()=>{toasts.value=toasts.value.filter(t=>t.id!==id)},3500);}
@@ -976,7 +977,7 @@ createApp({
         localStorage.setItem('okul_token',token.value);localStorage.setItem('okul_user',JSON.stringify(user.value));
         document.cookie=`okul_token=${token.value};path=/;max-age=86400;SameSite=Lax`;
         await loadAll();
-      }catch(e){loginErr.value=e.response?.data?.message||'Bağlantı hatası';}
+      }catch(e){loginErr.value=e.response?.data?.message || e?.message || 'Bağlantı hatası';}
       lLoad.value=false;
     }
     function doLogout(){http.post('/auth/cikis').catch(()=>{});token.value='';user.value={};localStorage.removeItem('okul_token');localStorage.removeItem('okul_user');document.cookie='okul_token=;path=/;max-age=0';}
@@ -1019,7 +1020,7 @@ createApp({
           if(d.okul)okul.value={...okul.value,...d.okul};
         }
         ready.value=true;
-      }catch(e){toast('Veri yüklenemedi','e');}
+      }catch(e){const msg=e?.response?.data?.message||e?.message||'Veri yüklenemedi';toast(msg,'e');console.error('loadAll error:',e?.response?.data||e);ready.value=true;}
       loading.value=false;
     }
     async function reload(){await loadAll();loadCalendar();toast('Yenilendi');}
@@ -1068,7 +1069,7 @@ createApp({
       selectedStudents.value=[];
       if(oGrup.value==='mezun'){
         try{const r=await api('GET','ogrenciler',null,{grup:'mezun'});mezunlar.value=r.data||[];}
-        catch(e){toast('Mezunlar yüklenemedi','e');}
+        catch(e){mezunlar.value=[];toast('Mezunlar yüklenemedi: '+(e?.response?.data?.message||e?.message||''),'e');}
       }
     }
 
@@ -1095,7 +1096,7 @@ createApp({
         await api('PUT','ogrenciler/mezun-yap',{ids:selectedStudents.value,mezuniyet_yili:mezunYil.value});
         mezunYapModal.value=false;selectedStudents.value=[];
         await loadAll();toast('Öğrenciler mezun yapıldı');
-      }catch(e){toast(e.response?.data?.message||'Hata','e');}
+      }catch(e){toast(e.response?.data?.message || e?.message || 'Hata','e');}
       fSaving.value=false;
     }
     async function mezunuGeriAl(){
@@ -1103,7 +1104,7 @@ createApp({
       try{
         await api('PUT','ogrenciler/mezunu-geri-al',{ids:selectedStudents.value});
         selectedStudents.value=[];await loadAll();await loadStudentsByGrup();toast('Geri alındı');
-      }catch(e){toast(e.response?.data?.message||'Hata','e');}
+      }catch(e){toast(e.response?.data?.message || e?.message || 'Hata','e');}
     }
     function doPrint(){
       const cols=printCols.value.filter(c=>c.sel);
@@ -1145,18 +1146,18 @@ createApp({
         if(editO.value)await api('PUT','ogrenciler/'+editO.value.id,oF.value);
         else await api('POST','ogrenciler',oF.value);
         oModal.value=false;await loadAll();toast(editO.value?'Güncellendi':'Öğrenci eklendi');
-      }catch(e){fErr.value=e.response?.data?.message||'Kayıt hatası';}
+      }catch(e){fErr.value=e.response?.data?.message || e?.message || 'Kayıt hatası';}
       fSaving.value=false;
     }
 
     // Devamsızlık
     const devTarih=ref(new Date().toISOString().slice(0,10));const devSinif=ref('');const devState=ref({});const devSaving=ref(false);const devList=ref([]);
-    const devStudents=computed(()=>{let l=students.value.filter(s=>s.aktif!==false&&s.aktif!==0);if(devSinif.value)l=l.filter(s=>s.sinif_id==devSinif.value);return l;});
+    const devStudents=computed(()=>{let l=students.value.filter(s=>s.aktif!=0&&s.aktif!==false&&s.aktif!=='0');if(devSinif.value)l=l.filter(s=>String(s.sinif_id)===String(devSinif.value));return l;});
     const devGelmediC=computed(()=>Object.values(devState.value).filter(v=>v==='gelmedi').length);
     const devMazC=computed(()=>Object.values(devState.value).filter(v=>v==='mazeretli').length);
     function setDev(id,d){devState.value={...devState.value,[id]:d};}
     function hepsiniGeldi(){const s={};devStudents.value.forEach(st=>{s[st.id]='geldi';});devState.value=s;}
-    async function loadDevList(){try{const r=await api('GET','devamsizlik',null,{tarih:devTarih.value});devList.value=r.data?.data||[];}catch(e){}}
+    async function loadDevList(){try{const r=await api('GET','devamsizlik',null,{tarih:devTarih.value});devList.value=r.data||[];}catch(e){}}
     async function saveDevamsizlik(){
       devSaving.value=true;
       try{
@@ -1165,7 +1166,7 @@ createApp({
         const bil=r.data?.bildirim_sayisi||0;
         toast(`Kaydedildi${bil>0?`. ${bil} veli bilgilendirildi`:'.'}`);
         await loadDevList();await loadAll();
-      }catch(e){toast(e.response?.data?.message||'Hata','e');}
+      }catch(e){toast(e.response?.data?.message || e?.message || 'Hata','e');}
       devSaving.value=false;
     }
     watch(devTarih,()=>loadDevList());
@@ -1174,12 +1175,12 @@ createApp({
     const teacherNotes=ref([]);const notModal=ref(false);const nF=ref({});const noteDetail=ref(null);const notFilter=ref('');
     const filteredNotes=computed(()=>notFilter.value===''?teacherNotes.value:teacherNotes.value.filter(n=>String(n.is_read)===notFilter.value));
     function resetNF(){nF.value={student_id:'',baslik:'',icerik:'',kategori:'genel',onem:'normal',veliye_gorunsun:true};fErr.value='';}
-    async function loadNotes(){try{const r=await api('GET','ogretmen-notlari');teacherNotes.value=r.data?.data||r.data||[];}catch(e){}}
+    async function loadNotes(){try{const r=await api('GET','ogretmen-notlari');teacherNotes.value=r.data||[];}catch(e){}}
     async function saveNote(){
       if(!nF.value.student_id||!nF.value.icerik){fErr.value='Öğrenci ve içerik gerekli';return;}
       fSaving.value=true;fErr.value='';
       try{await api('POST','ogretmen-notlari',nF.value);notModal.value=false;await loadNotes();await loadAll();toast('Not eklendi');}
-      catch(e){fErr.value=e.response?.data?.message||'Hata';}
+      catch(e){fErr.value=e.response?.data?.message || e?.message || 'Hata';}
       fSaving.value=false;
     }
     async function markNoteRead(id){
@@ -1194,14 +1195,14 @@ createApp({
     // Bildirimler
     const bLog=ref([]);const bF=ref({student_id:'',mesaj:'',kanal:'whatsapp',sablon_tipi:'genel'});const bSending=ref(false);const copied=ref(false);
     const templates=ref([]);const sablonModal=ref(false);const editSablon=ref(null);const sablonF=ref({kod:'',baslik:'',icerik:''});
-    async function loadBLog(){try{const r=await api('GET','bildirim/log',null,{per_page:60});bLog.value=(r.data?.data||[]).map(l=>({...l,student:{id:l.student_id,ad:l.student_ad,soyad:l.student_soyad}}));failedC.value=bLog.value.filter(l=>l.durum==='failed').length;}catch(e){}}
+    async function loadBLog(){try{const r=await api('GET','bildirim/log',null,{per_page:60});bLog.value=(r.data||[]).map(l=>({...l,student:{id:l.student_id,ad:l.student_ad,soyad:l.student_soyad}}));failedC.value=bLog.value.filter(l=>l.durum==='failed').length;}catch(e){}}
     async function loadTemplates(){try{const r=await api('GET','sablonlar');templates.value=r.data||[];}catch(e){}}
     function applyTemplate(id){const t=templates.value.find(t=>t.id==id);if(t){bF.value.mesaj=t.icerik;bF.value.sablon_tipi=t.kod;}}
     async function sendBildirim(){
       if(!bF.value.student_id||!bF.value.mesaj){toast('Öğrenci ve mesaj gerekli','w');return;}
       bSending.value=true;
       try{await api('POST','bildirim/gonder',bF.value);toast('Gönderildi');bF.value.mesaj='';bF.value.student_id='';await loadBLog();}
-      catch(e){toast(e.response?.data?.message||'Hata','e');}
+      catch(e){toast(e.response?.data?.message || e?.message || 'Hata','e');}
       bSending.value=false;
     }
     async function retryB(id){try{await api('POST','bildirim/tekrar-gonder',{log_id:id});toast('Yeniden gönderildi');await loadBLog();}catch(e){toast('Hata','e');}}
@@ -1219,7 +1220,7 @@ createApp({
         if(editSablon.value)await api('PUT','sablonlar/'+editSablon.value.id,sablonF.value);
         else await api('POST','sablonlar',sablonF.value);
         sablonModal.value=false;await loadTemplates();toast('Şablon kaydedildi');
-      }catch(e){toast(e.response?.data?.message||'Hata','e');}
+      }catch(e){toast(e.response?.data?.message || e?.message || 'Hata','e');}
       fSaving.value=false;
     }
 
@@ -1244,7 +1245,7 @@ createApp({
         if(editU.value)await api('PUT','kullanicilar/'+editU.value.id,payload);
         else await api('POST','kullanicilar',payload);
         uModal.value=false;await loadUsers();await loadAll();toast(editU.value?'Güncellendi':'Kullanıcı eklendi');
-      }catch(e){fErr.value=e.response?.data?.message||'Hata';}
+      }catch(e){fErr.value=e.response?.data?.message || e?.message || 'Hata';}
       fSaving.value=false;
     }
     async function toggleUserAktif(u){
@@ -1254,7 +1255,7 @@ createApp({
     async function deleteUser(u){
       if(!confirm(`"${u.ad} ${u.soyad}" kullanıcısı kalıcı olarak silinsin mi?\nBu işlem geri alınamaz!`))return;
       try{await api('DELETE','kullanicilar/'+u.id);await loadUsers();toast('Kullanıcı silindi');}
-      catch(e){toast(e.response?.data?.message||'Silinemedi','e');}
+      catch(e){toast(e.response?.data?.message || e?.message || 'Silinemedi','e');}
     }
 
     // Ayarlar
@@ -1274,13 +1275,13 @@ createApp({
         if(editSinif.value)await api('PUT','siniflar/'+editSinif.value.id,sinifF.value);
         else await api('POST','siniflar',sinifF.value);
         sinifModal.value=false;await loadAll();toast(editSinif.value?'Sınıf güncellendi':'Sınıf eklendi');
-      }catch(e){toast(e.response?.data?.message||'Hata','e');}
+      }catch(e){toast(e.response?.data?.message || e?.message || 'Hata','e');}
       fSaving.value=false;
     }
     async function deleteSinif(s){
       if(!confirm(`"${s.ad}" sınıfı silinsin mi? İçinde öğrenci varsa silinemez.`))return;
       try{await api('DELETE','siniflar/'+s.id);await loadAll();toast('Sınıf silindi');}
-      catch(e){toast(e.response?.data?.message||'Silinemedi','e');}
+      catch(e){toast(e.response?.data?.message || e?.message || 'Silinemedi','e');}
     }
 
     // Sayfa değişiminde yükle
