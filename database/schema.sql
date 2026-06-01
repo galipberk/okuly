@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Anamakine: localhost:3306
--- Üretim Zamanı: 31 May 2026, 13:34:39
+-- Üretim Zamanı: 01 Haz 2026, 05:51:02
 -- Sunucu sürümü: 10.4.34-MariaDB
 -- PHP Sürümü: 8.2.31
 
@@ -284,6 +284,13 @@ CREATE TABLE `students` (
   `guncelleme` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci;
 
+--
+-- Tablo döküm verisi `students`
+--
+
+INSERT INTO `students` (`id`, `institution_id`, `sinif_id`, `ogrenci_turu`, `danisman_id`, `ogrenci_no`, `kurum_no`, `tc_no`, `ad`, `soyad`, `dogum_tarihi`, `cinsiyet`, `foto`, `okul_adi`, `baba_adi`, `baba_tel`, `anne_adi`, `anne_tel`, `bildirim_tercih`, `acil_tel`, `adres`, `saglik_notu`, `yarisma_turu`, `yarisma_alani`, `odeme_durumu`, `kayit_tutari`, `odeme_notu`, `kayit_tarihi`, `aktif`, `olusturma`, `guncelleme`) VALUES
+(3, 1, 0, 'egitim', NULL, '2026', NULL, NULL, 'Galip', 'BERK', '1111-01-01', 'E', NULL, NULL, NULL, NULL, NULL, NULL, 'baba', '54654654654', NULL, 'sdas', NULL, NULL, 'bekliyor', 0.00, NULL, '2026-05-31', 1, '2026-05-31 19:25:35', '2026-05-31 19:25:35');
+
 -- --------------------------------------------------------
 
 --
@@ -331,10 +338,9 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `institution_id`, `ad`, `soyad`, `email`, `telefon`, `sifre`, `rol`, `aktif`, `son_giris`, `olusturma`, `guncelleme`) VALUES
-(1, 1, 'Sistem', 'Yöneticisi', 'admin@kodlayap.tr', '04622234466', '$2y$10$TKh8H1.PfbuNv6kYoIBqaOzbbXIiITi1kfOhMDUxY7UzBN/a5HZNO', 'admin', 1, NULL, '2026-05-31 09:29:54', '2026-05-31 09:29:54'),
-(2, 1, 'Ahmet', 'Yılmaz', 'ahmet@kodlayap.tr', '05301110001', '$2y$10$KIX8zAqZsRUeqg7mQpnGcOwTnIKHg0kLj5MlFzU5NpnYPIijVQa6i', 'ogretmen', 1, NULL, '2026-05-31 09:29:54', '2026-05-31 09:29:54'),
-(3, 1, 'Fatma', 'Kaya', 'fatma@kodlayap.tr', '05301110002', '$2y$10$KIX8zAqZsRUeqg7mQpnGcOwTnIKHg0kLj5MlFzU5NpnYPIijVQa6i', 'ogretmen', 1, NULL, '2026-05-31 09:29:54', '2026-05-31 09:29:54'),
-(4, 1, 'Mehmet', 'Demir', 'mehmet@kodlayap.tr', '05301110003', '$2y$10$KIX8zAqZsRUeqg7mQpnGcOwTnIKHg0kLj5MlFzU5NpnYPIijVQa6i', 'ogretmen', 1, NULL, '2026-05-31 09:29:54', '2026-05-31 09:29:54');
+(1, 1, 'Sistem', 'Yöneticisi', 'admin@kodlayap.tr', '04622234466', '$2y$10$MzdAHUawQSn5T4RncKDV5ekZ3nCpsXNgYzsKLuwtEfaWnmzYVFTD6', 'admin', 1, '2026-05-31 17:50:55', '2026-05-31 09:29:54', '2026-05-31 17:50:55'),
+(2, 1, 'galip', 'galip', 'galipberk@gmail.com', '05301110001', '$2y$10$9ixV7TndNRlT8HGr8v5DB.9LxlunYIYXFVsuzY6/C1LVKV1zlOOWi', 'admin', 1, '2026-05-31 11:15:02', '2026-05-31 09:29:54', '2026-05-31 11:15:02'),
+(7, 1, 'Galip', 'BERK', 'g@g.net', '', '$2y$10$tkOndZnjFfiSZGpxdTsS1eGaR6JVu2wXok2DVNqVpLWFpCGhLJSIm', 'ogretmen', 1, NULL, '2026-05-31 11:19:21', '2026-05-31 11:19:21');
 
 --
 -- Dökümü yapılmış tablolar için indeksler
@@ -511,7 +517,7 @@ ALTER TABLE `siniflar`
 -- Tablo için AUTO_INCREMENT değeri `students`
 --
 ALTER TABLE `students`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `teacher_notes`
@@ -523,7 +529,7 @@ ALTER TABLE `teacher_notes`
 -- Tablo için AUTO_INCREMENT değeri `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
