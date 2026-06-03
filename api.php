@@ -99,8 +99,9 @@ if(empty(trim($uri,'/'))&&!empty($_GET['_r'])) $uri=$_GET['_r'];
 $parts=array_values(array_filter(explode('/',trim($uri,'/'))));
 $route=$parts[0]??'';
 $id=isset($parts[1])&&is_numeric($parts[1])?(int)$parts[1]:null;
-$sub=$parts[2]??'';
-$sub2=$parts[2]??'';
+// $sub: parts[1]'in non-numeric olması durumunda, yoksa parts[2]
+$sub=!is_numeric($parts[1]??null)?($parts[1]??''):($parts[2]??'');
+$sub2=$parts[2]??($parts[3]??'');
 
 match($route){
     'ping'            =>ok(['status'=>'ok','v'=>'3.0','t'=>now_str()]),
@@ -419,7 +420,7 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
     // Öğrenci fotoğraf yükleme
     if($m==='POST'&&$sub==='fotograf'){
         auth(['admin']);
-        $sid=$id;  // ✅ $id zaten parameter'ı
+        $sid=$id;  // ✅ $id zaten function parameter'ı olarak geçiliyor
         if(!$sid)err('Öğrenci ID gerekli');
         if(empty($_FILES['fotograf']))err('Dosya yüklenmedi');
         $f=$_FILES['fotograf'];
