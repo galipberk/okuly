@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Okul Yönetim Paneli</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%232563eb' width='32' height='32'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='20' font-weight='bold' fill='white' font-family='system-ui'>🏫</text></svg>">
 <script src="/assets/js/vue.min.js"></script>
 <script src="/assets/js/axios.min.js"></script>
 <link rel="stylesheet" href="/assets/css/tabler-icons.min.css">
@@ -182,13 +183,14 @@ a{color:var(--acc);text-decoration:none}
   <div class="lc">
     <div class="llo"><span>📚</span><h1>Okul Yönetim Paneli</h1><p>kodlayap.tr</p></div>
     <div v-if="loginErr" class="al al-e"><i class="ti ti-alert-circle"></i><span>{{ loginErr }}</span></div>
-    <div class="fg"><label>E-posta</label><input type="email" v-model="lf.email" @keyup.enter="doLogin" :disabled="lLoad" placeholder="admin@kodlayap.tr"></div>
-    <div class="fg"><label>Şifre</label><input type="password" v-model="lf.sifre" @keyup.enter="doLogin" :disabled="lLoad" placeholder="••••••••"></div>
-    <button class="btn btn-p btn-fl" style="margin-top:8px;padding:11px" @click="doLogin" :disabled="lLoad">
+    <div class="fg"><label>E-posta</label><input type="email" v-model="lf.email" @keyup.enter="doLogin" :disabled="lLoad" placeholder="admin@kodlayap.tr" autocomplete="username"></div>
+    <div class="fg"><label>Şifre</label><input type="password" v-model="lf.sifre" @keyup.enter="doLogin" :disabled="lLoad" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="btn btn-p btn-fl" style="margin-top:8px;padding:11px" @click="doLogin" :disabled="lLoad||loginBlocked">
       <span v-if="lLoad" class="sp"></span><i v-else class="ti ti-login"></i>
-      {{ lLoad ? 'Giriş yapılıyor…' : 'Giriş Yap' }}
+      {{ lLoad ? 'Giriş yapılıyor…' : loginBlocked ? `Lütfen bekleyin (${loginCountdown}s)` : 'Giriş Yap' }}
     </button>
-    <div style="text-align:center;margin-top:14px;font-size:12px;color:var(--t3)"><i class="ti ti-phone"></i> 0462 223 44 66</div>
+    <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--t3)"><i class="ti ti-lock"></i> Admin oturumları 60 dakika ile sınırlıdır</div>
+    <div style="text-align:center;margin-top:6px;font-size:12px;color:var(--t3)"><i class="ti ti-phone"></i> 0462 223 44 66</div>
   </div>
 </div>
 
@@ -417,7 +419,17 @@ a{color:var(--acc);text-decoration:none}
                     <div style="color:var(--t3)">{{ s.ogrenci_no }}</div>
                     <div style="color:var(--acc);font-weight:600" v-if="s.kurum_no">{{ s.kurum_no }}</div>
                   </td>
-                  <td style="font-weight:600">{{ s.ad }} {{ s.soyad }}</td>
+                  <td style="font-weight:600">
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <div v-if="s.fotograf" style="width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#f1f5f9;display:flex;align-items:center;justify-content:center">
+                        <img :src="'/'+s.fotograf" style="width:100%;height:100%;object-fit:cover" :alt="s.ad">
+                      </div>
+                      <div v-else style="width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:var(--t3)">
+                        <i class="ti ti-user" style="font-size:16px"></i>
+                      </div>
+                      <span>{{ s.ad }} {{ s.soyad }}</span>
+                    </div>
+                  </td>
                   <td><span :class="'bdg '+(s.ogrenci_turu==='proje'?'b-p':'b-i')">{{ s.ogrenci_turu==='proje'?'🔬 Proje':'🎓 Eğitim' }}</span></td>
                   <td><span class="tag" v-if="s.sinif_adi">{{ s.sinif_adi }}</span></td>
                   <td style="font-family:monospace;font-size:11px;color:var(--t2)">{{ s.tc_no||'—' }}</td>
@@ -474,6 +486,24 @@ a{color:var(--acc);text-decoration:none}
             <div class="mh"><span class="mt">{{ editO?'Öğrenci Düzenle':'Yeni Öğrenci Kaydı' }}</span><button class="mc" @click="oModal=false">✕</button></div>
             <div class="mbody">
               <div v-if="fErr" class="al al-e"><i class="ti ti-alert-circle"></i>{{ fErr }}</div>
+
+              <!-- Fotoğraf -->
+              <div class="sec">Öğrenci Fotoğrafı</div>
+              <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+                <div style="width:80px;height:80px;border-radius:50%;border:2px solid var(--bdr);overflow:hidden;background:#f1f5f9;flex-shrink:0;display:flex;align-items:center;justify-content:center">
+                  <img v-if="oF.fotograf||fotoPreview" :src="fotoPreview||(oF.fotograf?('/'+oF.fotograf):'')" style="width:100%;height:100%;object-fit:cover">
+                  <i v-else class="ti ti-user" style="font-size:32px;color:var(--t3)"></i>
+                </div>
+                <div style="flex:1">
+                  <label style="display:inline-block;cursor:pointer">
+                    <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none" @change="onFotoChange">
+                    <span class="btn btn-s btn-sm"><i class="ti ti-upload"></i>Fotoğraf Seç</span>
+                  </label>
+                  <div style="font-size:11px;color:var(--t3);margin-top:5px">JPEG, PNG veya WebP · Maks 3MB<br><span v-if="editO" style="color:var(--acc)">Kaydet'e tıkladıktan sonra fotoğraf otomatik yüklenir.</span></div>
+                  <button v-if="fotoPreview" class="btn btn-d btn-xs" style="margin-top:6px" @click="fotoPreview=null;fotoFile=null"><i class="ti ti-x"></i>Kaldır</button>
+                </div>
+              </div>
+
               <div class="sec">Öğrenci Türü</div>
               <div style="display:flex;gap:10px;margin-bottom:12px">
                 <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px 16px;border:1.5px solid var(--bdr);border-radius:var(--rs);flex:1;transition:all .14s" :style="oF.ogrenci_turu==='egitim'?'border-color:var(--acc);background:#eff6ff':''">
@@ -497,7 +527,12 @@ a{color:var(--acc);text-decoration:none}
               <div class="gc3">
                 <div class="fg"><label>Ad *</label><input v-model="oF.ad" placeholder="Adı"></div>
                 <div class="fg"><label>Soyad *</label><input v-model="oF.soyad" placeholder="Soyadı"></div>
-                <div class="fg"><label>TC Kimlik No</label><input v-model="oF.tc_no" placeholder="11 haneli" maxlength="11"></div>
+                <div class="fg">
+                  <label>TC Kimlik No</label>
+                  <input v-model="oF.tc_no" placeholder="11 rakam" maxlength="11" inputmode="numeric" @input="oF.tc_no=oF.tc_no.replace(/[^0-9]/g,'').slice(0,11)" :style="oF.tc_no&&(oF.tc_no.length!==11||!tcGecerli(oF.tc_no))?'border-color:var(--err)':oF.tc_no&&oF.tc_no.length===11&&tcGecerli(oF.tc_no)?'border-color:var(--ok)':''">
+                  <span v-if="oF.tc_no&&oF.tc_no.length===11&&!tcGecerli(oF.tc_no)" style="font-size:11px;color:var(--err)">⚠ Geçersiz TC kimlik numarası</span>
+                  <span v-if="oF.tc_no&&oF.tc_no.length===11&&tcGecerli(oF.tc_no)" style="font-size:11px;color:var(--ok)">✓ Geçerli</span>
+                </div>
               </div>
               <div class="gc3">
                 <div class="fg"><label>Kurum Numarası <span style="color:var(--t3);font-size:10px">(opsiyonel)</span></label><input v-model="oF.kurum_no" placeholder="Örn: 2024-001"></div>
@@ -514,13 +549,21 @@ a{color:var(--acc);text-decoration:none}
               <div class="sec">Baba Bilgisi</div>
               <div class="gc2">
                 <div class="fg"><label>Baba Adı Soyadı</label><input v-model="oF.baba_adi" placeholder="Baba adı soyadı"></div>
-                <div class="fg"><label>Baba Telefonu</label><input v-model="oF.baba_tel" placeholder="05xx xxx xx xx" type="tel"></div>
+                <div class="fg">
+                  <label>Baba Telefonu</label>
+                  <input v-model="oF.baba_tel" placeholder="05xx xxx xx xx" type="tel" @input="formatTel('baba_tel')" :style="oF.baba_tel&&!telGecerli(oF.baba_tel)?'border-color:var(--err)':''">
+                  <span v-if="oF.baba_tel&&!telGecerli(oF.baba_tel)" style="font-size:11px;color:var(--err)">⚠ 05 ile başlayan 11 haneli olmalı</span>
+                </div>
               </div>
 
               <div class="sec">Anne Bilgisi</div>
               <div class="gc2">
                 <div class="fg"><label>Anne Adı Soyadı</label><input v-model="oF.anne_adi" placeholder="Anne adı soyadı"></div>
-                <div class="fg"><label>Anne Telefonu</label><input v-model="oF.anne_tel" placeholder="05xx xxx xx xx" type="tel"></div>
+                <div class="fg">
+                  <label>Anne Telefonu</label>
+                  <input v-model="oF.anne_tel" placeholder="05xx xxx xx xx" type="tel" @input="formatTel('anne_tel')" :style="oF.anne_tel&&!telGecerli(oF.anne_tel)?'border-color:var(--err)':''">
+                  <span v-if="oF.anne_tel&&!telGecerli(oF.anne_tel)" style="font-size:11px;color:var(--err)">⚠ 05 ile başlayan 11 haneli olmalı</span>
+                </div>
               </div>
 
               <div class="fg" style="margin-top:6px">
@@ -537,7 +580,11 @@ a{color:var(--acc);text-decoration:none}
                   <select v-model="oF.odeme_durumu"><option value="bekliyor">Bekliyor</option><option value="odendi">Ödendi</option><option value="taksit">Taksitli</option><option value="muaf">Muaf</option></select>
                 </div>
                 <div class="fg"><label>Kayıt Ücreti (₺)</label><input type="number" v-model="oF.kayit_tutari" placeholder="0"></div>
-                <div class="fg"><label>Acil Telefon</label><input v-model="oF.acil_tel" placeholder="05xx"></div>
+                <div class="fg">
+                  <label>Acil Telefon</label>
+                  <input v-model="oF.acil_tel" placeholder="05xx xxx xx xx" type="tel" @input="formatTel('acil_tel')" :style="oF.acil_tel&&!telGecerli(oF.acil_tel)?'border-color:var(--err)':''">
+                  <span v-if="oF.acil_tel&&!telGecerli(oF.acil_tel)" style="font-size:11px;color:var(--err)">⚠ 05 ile başlayan 11 haneli olmalı</span>
+                </div>
               </div>
               <div class="fg"><label>Ödeme Notu</label><textarea v-model="oF.odeme_notu" style="min-height:55px" placeholder="Ödeme ile ilgili not…"></textarea></div>
 
@@ -660,31 +707,71 @@ a{color:var(--acc);text-decoration:none}
 
       <!-- ══════ ÖĞRETMEN NOTLARI ══════ -->
       <template v-else-if="page==='notlar'">
-        <div class="card">
+        <div class="card mb">
           <div class="ch">
-            <span class="ct"><i class="ti ti-notes"></i>Öğretmen Notları</span>
-            <div style="display:flex;gap:8px">
+            <span class="ct"><i class="ti ti-notes"></i>Öğretmen Notları <span v-if="teacherNotes.length" style="color:var(--t3);font-weight:400;font-size:12px">({{ filteredNotes.length }}/{{ teacherNotes.length }})</span></span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <input v-model="notQ" placeholder="Öğrenci veya içerik ara…" style="padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px;width:190px">
               <select v-model="notFilter" style="padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px">
-                <option value="">Tümü</option><option value="0">Okunmamış</option><option value="1">Okunmuş</option>
+                <option value="">Tüm Durumlar</option>
+                <option value="0">Okunmamış</option>
+                <option value="1">Okunmuş</option>
+              </select>
+              <select v-model="notKatFilter" style="padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px">
+                <option value="">Tüm Kategoriler</option>
+                <option value="genel">Genel</option>
+                <option value="akademik">Akademik</option>
+                <option value="davranis">Davranış</option>
+                <option value="saglik">Sağlık</option>
+                <option value="aile">Aile</option>
+              </select>
+              <select v-model="notOnemFilter" style="padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px">
+                <option value="">Tüm Önemler</option>
+                <option value="acil">⚠ Acil</option>
+                <option value="onemli">Önemli</option>
+                <option value="normal">Normal</option>
               </select>
               <button class="btn btn-p btn-sm" @click="notModal=true;resetNF()"><i class="ti ti-plus"></i>Not Ekle</button>
             </div>
           </div>
-          <div v-if="!filteredNotes.length" class="empty"><i class="ti ti-notes-off"></i><p>Not bulunamadı</p></div>
-          <div v-for="n in filteredNotes" :key="n.id" class="note-card" :style="n.is_read?'opacity:.6':''">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">
-              <span style="font-weight:700;font-size:13px">{{ n.ogrenci_adi }} {{ n.ogrenci_soyad }}</span>
-              <span :class="'bdg '+(n.onem==='acil'?'b-e':n.onem==='onemli'?'b-w':'b-g')">{{ n.onem==='acil'?'⚠ Acil':n.onem==='onemli'?'Önemli':'Normal' }}</span>
-              <span class="bdg b-i" style="text-transform:capitalize">{{ n.kategori }}</span>
-              <span v-if="n.is_read" class="bdg b-ok"><i class="ti ti-check"></i>Okundu</span>
-              <span style="font-size:11px;color:var(--t3);margin-left:auto">{{ n.olusturma?.slice(0,10) }}</span>
-              <button class="btn btn-d btn-xs" @click="deleteNote(n.id)"><i class="ti ti-trash"></i></button>
+          <!-- İstatistik şeridi -->
+          <div style="display:flex;gap:0;border-bottom:1px solid var(--bdr);background:#f8fafc">
+            <div style="flex:1;padding:10px 16px;text-align:center;border-right:1px solid var(--bdr)">
+              <div style="font-size:20px;font-weight:800;color:var(--t1)">{{ teacherNotes.length }}</div>
+              <div style="font-size:11px;color:var(--t3)">Toplam Not</div>
             </div>
-            <div v-if="n.baslik" style="font-weight:600;font-size:13px;margin-bottom:3px">{{ n.baslik }}</div>
-            <div style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:6px">{{ n.icerik }}</div>
-            <div style="display:flex;gap:8px">
-              <span style="font-size:11px;color:var(--t3)">— {{ n.ogretmen_adi }} {{ n.ogretmen_soyad }}</span>
-              <button v-if="!n.is_read" class="btn btn-ok btn-xs" style="margin-left:auto" @click="markNoteRead(n.id)"><i class="ti ti-check"></i>Okundu İşaretle</button>
+            <div style="flex:1;padding:10px 16px;text-align:center;border-right:1px solid var(--bdr)">
+              <div style="font-size:20px;font-weight:800;color:var(--err)">{{ teacherNotes.filter(n=>!n.is_read).length }}</div>
+              <div style="font-size:11px;color:var(--t3)">Okunmamış</div>
+            </div>
+            <div style="flex:1;padding:10px 16px;text-align:center;border-right:1px solid var(--bdr)">
+              <div style="font-size:20px;font-weight:800;color:var(--warn)">{{ teacherNotes.filter(n=>n.onem==='acil').length }}</div>
+              <div style="font-size:11px;color:var(--t3)">Acil</div>
+            </div>
+            <div style="flex:1;padding:10px 16px;text-align:center">
+              <div style="font-size:20px;font-weight:800;color:var(--ok)">{{ teacherNotes.filter(n=>n.is_read).length }}</div>
+              <div style="font-size:11px;color:var(--t3)">Okunmuş</div>
+            </div>
+          </div>
+          <div v-if="!filteredNotes.length" class="empty"><i class="ti ti-notes-off"></i><p>Not bulunamadı</p></div>
+          <div v-for="n in filteredNotes" :key="n.id" class="note-card" :style="n.is_read?'opacity:.65':''">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">
+              <!-- Öğrenci avatarı -->
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0">{{ ((n.ogrenci_adi||'')[0]+(n.ogrenci_soyad||'')[0]).toUpperCase() }}</div>
+              <div>
+                <div style="font-weight:700;font-size:13px;line-height:1.2">{{ n.ogrenci_adi }} {{ n.ogrenci_soyad }}</div>
+                <div style="font-size:11px;color:var(--t3)">— {{ n.ogretmen_adi }} {{ n.ogretmen_soyad }}</div>
+              </div>
+              <span :class="'bdg '+(n.onem==='acil'?'b-e':n.onem==='onemli'?'b-w':'b-g')">{{ n.onem==='acil'?'⚠ Acil':n.onem==='onemli'?'Önemli':'Normal' }}</span>
+              <span class="bdg b-i" style="text-transform:capitalize">{{ {genel:'Genel',akademik:'Akademik',davranis:'Davranış',saglik:'Sağlık',aile:'Aile'}[n.kategori]||n.kategori }}</span>
+              <span v-if="n.is_read" class="bdg b-ok"><i class="ti ti-check"></i>Okundu</span>
+              <span style="font-size:11px;color:var(--t3);margin-left:auto">{{ n.olusturma?.slice(0,16).replace('T',' ') }}</span>
+            </div>
+            <div v-if="n.baslik" style="font-weight:600;font-size:13px;margin-bottom:4px;color:var(--t1)">{{ n.baslik }}</div>
+            <div style="font-size:13px;color:var(--t1);line-height:1.6;margin-bottom:8px;padding:10px 12px;background:#f8fafc;border-radius:6px;border-left:3px solid var(--bdr)" :style="n.onem==='acil'?'border-left-color:var(--err);background:#fef2f2':n.onem==='onemli'?'border-left-color:var(--warn);background:#fffbeb':''">{{ n.icerik }}</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button v-if="!n.is_read" class="btn btn-ok btn-xs" @click="markNoteRead(n.id)"><i class="ti ti-check"></i>Okundu İşaretle</button>
+              <button class="btn btn-d btn-xs" @click="deleteNote(n.id)"><i class="ti ti-trash"></i>Sil</button>
             </div>
           </div>
         </div>
@@ -748,21 +835,41 @@ a{color:var(--acc);text-decoration:none}
 
           <!-- Log -->
           <div class="card">
-            <div class="ch"><span class="ct"><i class="ti ti-history"></i>Son Bildirimler</span><button class="btn btn-s btn-sm" @click="loadBLog"><i class="ti ti-refresh"></i></button></div>
-            <div v-if="!bLog.length" class="empty"><i class="ti ti-bell-off"></i><p>Geçmiş yok</p></div>
-            <div style="max-height:580px;overflow-y:auto">
-              <div v-for="l in bLog" :key="l.id" style="padding:9px 14px;border-bottom:1px solid var(--bdr)">
-                <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:3px">
-                  <span style="font-weight:600;font-size:13px">{{ l.student?.ad }} {{ l.student?.soyad }}</span>
-                  <span :class="'bdg '+(l.durum==='sent'?'b-ok':l.durum==='manuel_gonderildi'?'b-i':l.durum==='failed'?'b-e':'b-w')">
-                    {{ l.durum==='sent'?'Gönderildi':l.durum==='manuel_gonderildi'?'Manuel Gönderildi':l.durum==='failed'?'Hata':'Bekliyor' }}
-                  </span>
-                  <span style="font-size:11px;color:var(--t3);margin-left:auto">{{ l.olusturma?.slice(0,16).replace('T',' ') }}</span>
-                </div>
-                <div style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">{{ l.mesaj?.slice(0,70) }}</div>
-                <div style="display:flex;gap:6px">
-                  <button v-if="l.durum==='failed'" class="btn btn-w btn-xs" @click="retryB(l.id)">Tekrar Gönder</button>
-                  <button v-if="l.durum==='pending'" class="btn btn-s btn-xs" @click="markManuel(l.id)"><i class="ti ti-check"></i>Manuel Gönderildi İşaretle</button>
+            <div class="ch">
+              <span class="ct"><i class="ti ti-history"></i>Tüm Bildirimler</span>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <select v-model="bLogFilter" style="padding:5px 9px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:12px" @change="loadBLog">
+                  <option value="">Tümü</option>
+                  <option value="sent">Gönderildi</option>
+                  <option value="failed">Hata</option>
+                  <option value="pending">Bekliyor</option>
+                  <option value="manuel_gonderildi">Manuel</option>
+                </select>
+                <button class="btn btn-s btn-sm" @click="loadBLog"><i class="ti ti-refresh"></i></button>
+              </div>
+            </div>
+            <div v-if="bLogLoading" class="lw"><div class="ls"></div>Yükleniyor…</div>
+            <div v-else-if="!bLog.length" class="empty"><i class="ti ti-bell-off"></i><p>Bildirim bulunamadı</p></div>
+            <div v-else>
+              <div style="padding:8px 14px;background:#f8fafc;border-bottom:1px solid var(--bdr);font-size:11px;color:var(--t3);display:flex;justify-content:space-between">
+                <span>Toplam {{ bLog.length }} bildirim</span>
+                <span>{{ bLog.filter(l=>l.durum==='sent'||l.durum==='manuel_gonderildi').length }} başarılı · {{ bLog.filter(l=>l.durum==='failed').length }} hatalı · {{ bLog.filter(l=>l.durum==='pending').length }} bekliyor</span>
+              </div>
+              <div style="max-height:560px;overflow-y:auto">
+                <div v-for="l in bLog" :key="l.id" style="padding:10px 14px;border-bottom:1px solid var(--bdr)">
+                  <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:3px">
+                    <span style="font-weight:600;font-size:13px">{{ l.student?.ad }} {{ l.student?.soyad }}</span>
+                    <span class="bdg b-g" style="font-size:10px">{{ l.kanal==='whatsapp'?'📱 WA':'📨 SMS' }}</span>
+                    <span :class="'bdg '+(l.durum==='sent'?'b-ok':l.durum==='manuel_gonderildi'?'b-i':l.durum==='failed'?'b-e':'b-w')">
+                      {{ l.durum==='sent'?'✓ Gönderildi':l.durum==='manuel_gonderildi'?'✓ Manuel Gönderildi':l.durum==='failed'?'✗ Hata':'⏳ Bekliyor' }}
+                    </span>
+                    <span style="font-size:11px;color:var(--t3);margin-left:auto">{{ l.olusturma?.slice(0,16).replace('T',' ') }}</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--t2);margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ l.mesaj?.slice(0,80) }}</div>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap">
+                    <button v-if="l.durum==='failed'" class="btn btn-w btn-xs" @click="retryB(l.id)"><i class="ti ti-refresh"></i>Tekrar Gönder</button>
+                    <button v-if="l.durum==='failed'||l.durum==='pending'" class="btn btn-s btn-xs" @click="markManuel(l.id)"><i class="ti ti-check"></i>Manuel Gönderildi İşaretle</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -971,19 +1078,51 @@ createApp({
     function toast(msg,type='ok'){const id=Date.now()+Math.random();toasts.value.push({id,msg,type});setTimeout(()=>{toasts.value=toasts.value.filter(t=>t.id!==id)},3500);}
 
     const lf=ref({email:'',sifre:''});const lLoad=ref(false);const loginErr=ref('');
+    const loginBlocked=ref(false);const loginCountdown=ref(0);let loginCountdownTimer=null;
+    function startLoginCooldown(secs){
+      loginBlocked.value=true;loginCountdown.value=secs;
+      clearInterval(loginCountdownTimer);
+      loginCountdownTimer=setInterval(()=>{
+        loginCountdown.value--;
+        if(loginCountdown.value<=0){loginBlocked.value=false;clearInterval(loginCountdownTimer);}
+      },1000);
+    }
     async function doLogin(){
       if(!lf.value.email||!lf.value.sifre){loginErr.value='E-posta ve şifre gerekli';return;}
+      if(loginBlocked.value)return;
       lLoad.value=true;loginErr.value='';
       try{
         const {data}=await http.post('/auth/giris',{...lf.value,platform:'web'});
         token.value=data.data.token;user.value=data.data.user;
         localStorage.setItem('okul_token',token.value);localStorage.setItem('okul_user',JSON.stringify(user.value));
-        document.cookie=`okul_token=${token.value};path=/;max-age=86400;SameSite=Lax`;
+        // Token süresini kaydet — 60 dk sonra otomatik çıkış için
+        const exp=data.data.expires;
+        if(exp)localStorage.setItem('okul_token_exp',exp);
+        document.cookie=`okul_token=${token.value};path=/;max-age=3600;SameSite=Lax`;
         await loadAll();
-      }catch(e){loginErr.value=e.response?.data?.message || e?.message || 'Bağlantı hatası';}
+      }catch(e){
+        const status=e.response?.status;
+        const msg=e.response?.data?.message||e?.message||'Bağlantı hatası';
+        loginErr.value=msg;
+        // 429 = too many requests → cooldown
+        if(status===429){startLoginCooldown(60);}
+        // Her başarısız girişte kısa bekleme
+        else{startLoginCooldown(3);}
+      }
       lLoad.value=false;
     }
-    function doLogout(){http.post('/auth/cikis').catch(()=>{});token.value='';user.value={};localStorage.removeItem('okul_token');localStorage.removeItem('okul_user');document.cookie='okul_token=;path=/;max-age=0';}
+    // Token süre kontrolü — her 60 saniyede bir çalışır
+    function startTokenExpiryCheck(){
+      setInterval(()=>{
+        const exp=parseInt(localStorage.getItem('okul_token_exp')||'0');
+        if(exp&&Date.now()/1000>exp){doLogout();}
+        // Son 5 dakika kaldıysa uyarı
+        else if(exp&&exp-Date.now()/1000<300&&exp-Date.now()/1000>0){
+          toast('Oturumunuzun süresi 5 dakika içinde dolacak. Lütfen tekrar giriş yapın.','w');
+        }
+      },60000);
+    }
+    function doLogout(){http.post('/auth/cikis').catch(()=>{});token.value='';user.value={};localStorage.removeItem('okul_token');localStorage.removeItem('okul_user');localStorage.removeItem('okul_token_exp');document.cookie='okul_token=;path=/;max-age=0';}
 
     const page=ref('dashboard');const sbOpen=ref(false);const loading=ref(false);const ready=ref(false);const failedC=ref(0);
     const pTitles={dashboard:'Dashboard',ogrenciler:'Öğrenciler',devamsizlik:'Devamsızlık',notlar:'Öğretmen Notları',bildirim:'Bildirimler',raporlar:'Raporlar',kullanicilar:'Kullanıcı Yönetimi',ayarlar:'Ayarlar'};
@@ -1049,6 +1188,34 @@ createApp({
     }
     function prevMonth(){if(calMonth.value===1){calMonth.value=12;calYear.value--;}else calMonth.value--;loadCalendar();}
     function nextMonth(){if(calMonth.value===12){calMonth.value=1;calYear.value++;}else calMonth.value++;loadCalendar();}
+
+    // TC Kimlik No Doğrulama (frontend)
+    function tcGecerli(tc){
+      if(!/^[1-9][0-9]{10}$/.test(tc))return false;
+      const d=tc.split('').map(Number);
+      const t1=((d[0]+d[2]+d[4]+d[6]+d[8])*7-(d[1]+d[3]+d[5]+d[7]))%10;
+      if(t1!==d[9])return false;
+      return(d.slice(0,10).reduce((a,b)=>a+b,0)%10)===d[10];
+    }
+    // Telefon Doğrulama
+    function telGecerli(tel){if(!tel)return true;const t=tel.replace(/[\s\-\(\)]/g,'');return /^05[0-9]{9}$/.test(t);}
+    function formatTel(field){
+      let v=(oF.value[field]||'').replace(/[^0-9]/g,'');
+      if(v.length>11)v=v.slice(0,11);
+      oF.value[field]=v;
+    }
+
+    // Fotoğraf
+    const fotoFile=ref(null);const fotoPreview=ref(null);
+    function onFotoChange(e){
+      const f=e.target.files[0];
+      if(!f)return;
+      if(f.size>3*1024*1024){toast('Dosya boyutu 3MB\'yi aşıyor','w');return;}
+      fotoFile.value=f;
+      const reader=new FileReader();
+      reader.onload=ev=>fotoPreview.value=ev.target.result;
+      reader.readAsDataURL(f);
+    }
 
     // Öğrenciler
     const sQ=ref('');const sTur=ref('');const sSort=ref('soyad');const sDir=ref('ASC');
@@ -1140,14 +1307,40 @@ createApp({
     function openOModal(s=null){
       editO.value=s;
       oF.value=s?{...s}:{ogrenci_turu:'egitim',danisman_id:'',sinif_id:'',tc_no:'',kurum_no:'',ad:'',soyad:'',dogum_tarihi:'',cinsiyet:'',okul_adi:'',baba_adi:'',baba_tel:'',anne_adi:'',anne_tel:'',bildirim_tercih:'baba',acil_tel:'',saglik_notu:'',adres:'',yarisma_turu:'',yarisma_alani:'',odeme_durumu:'bekliyor',kayit_tutari:0,odeme_notu:''};
+      fotoFile.value=null;fotoPreview.value=null;
       fErr.value='';oModal.value=true;
     }
     async function saveOgrenci(){
       if(!oF.value.ad||!oF.value.soyad){fErr.value='Ad ve soyad gerekli';return;}
+      // TC kontrolü
+      if(oF.value.tc_no){
+        if(!/^[0-9]{11}$/.test(oF.value.tc_no)){fErr.value='TC Kimlik No 11 rakamdan oluşmalıdır';return;}
+        if(!tcGecerli(oF.value.tc_no)){fErr.value='Geçersiz TC Kimlik Numarası — lütfen kontrol edin';return;}
+      }
+      // Telefon kontrolü
+      if(oF.value.baba_tel&&!telGecerli(oF.value.baba_tel)){fErr.value='Baba telefonu 05 ile başlayan 11 haneli olmalıdır';return;}
+      if(oF.value.anne_tel&&!telGecerli(oF.value.anne_tel)){fErr.value='Anne telefonu 05 ile başlayan 11 haneli olmalıdır';return;}
+      if(oF.value.acil_tel&&!telGecerli(oF.value.acil_tel)){fErr.value='Acil telefon 05 ile başlayan 11 haneli olmalıdır';return;}
       fSaving.value=true;fErr.value='';
       try{
+        let savedId=editO.value?.id;
         if(editO.value)await api('PUT','ogrenciler/'+editO.value.id,oF.value);
-        else await api('POST','ogrenciler',oF.value);
+        else{const r=await api('POST','ogrenciler',oF.value);savedId=r.data?.id;}
+        // Fotoğraf yükleme
+        if(fotoFile.value&&savedId){
+          const fd=new FormData();fd.append('fotograf',fotoFile.value);
+          try{
+            // URL: /api.php/ogrenciler/5/fotograf
+            await axios.post(`${API}/ogrenciler/${savedId}/fotograf`,fd,{
+              headers:{'X-Token':token.value}
+              // FormData'nın kendi Content-Type header'ı kullanılacak
+            });
+            toast('Fotoğraf yüklendi');
+          }catch(fe){
+            console.error('Fotoğraf upload hatası:',fe.response?.data||fe);
+            toast('Fotoğraf yüklenemedi: '+(fe.response?.data?.message||fe?.message||''),'w');
+          }
+        }
         oModal.value=false;await loadAll();toast(editO.value?'Güncellendi':'Öğrenci eklendi');
       }catch(e){fErr.value=e.response?.data?.message || e?.message || 'Kayıt hatası';}
       fSaving.value=false;
@@ -1175,10 +1368,18 @@ createApp({
     watch(devTarih,()=>loadDevList());
 
     // Öğretmen Notları
-    const teacherNotes=ref([]);const notModal=ref(false);const nF=ref({});const noteDetail=ref(null);const notFilter=ref('');
-    const filteredNotes=computed(()=>notFilter.value===''?teacherNotes.value:teacherNotes.value.filter(n=>String(n.is_read)===notFilter.value));
+    const teacherNotes=ref([]);const notModal=ref(false);const nF=ref({});const noteDetail=ref(null);
+    const notFilter=ref('');const notQ=ref('');const notKatFilter=ref('');const notOnemFilter=ref('');
+    const filteredNotes=computed(()=>{
+      let list=teacherNotes.value;
+      if(notFilter.value!=='')list=list.filter(n=>String(n.is_read)===notFilter.value);
+      if(notKatFilter.value)list=list.filter(n=>n.kategori===notKatFilter.value);
+      if(notOnemFilter.value)list=list.filter(n=>n.onem===notOnemFilter.value);
+      if(notQ.value){const q=notQ.value.toLowerCase();list=list.filter(n=>(n.ogrenci_adi+' '+n.ogrenci_soyad+' '+(n.icerik||'')+' '+(n.baslik||'')).toLowerCase().includes(q));}
+      return list;
+    });
     function resetNF(){nF.value={student_id:'',baslik:'',icerik:'',kategori:'genel',onem:'normal',veliye_gorunsun:true};fErr.value='';}
-    async function loadNotes(){try{const r=await api('GET','ogretmen-notlari');teacherNotes.value=r.data||[];}catch(e){}}
+    async function loadNotes(){try{const r=await api('GET','ogretmen-notlari',null,{per_page:500});teacherNotes.value=(r.data?.data||r.data)||[];}catch(e){}}
     async function saveNote(){
       if(!nF.value.student_id||!nF.value.icerik){fErr.value='Öğrenci ve içerik gerekli';return;}
       fSaving.value=true;fErr.value='';
@@ -1197,8 +1398,20 @@ createApp({
 
     // Bildirimler
     const bLog=ref([]);const bF=ref({student_id:'',mesaj:'',kanal:'whatsapp',sablon_tipi:'genel'});const bSending=ref(false);const copied=ref(false);
+    const bLogFilter=ref('');const bLogLoading=ref(false);
     const templates=ref([]);const sablonModal=ref(false);const editSablon=ref(null);const sablonF=ref({kod:'',baslik:'',icerik:''});
-    async function loadBLog(){try{const r=await api('GET','bildirim/log',null,{per_page:60});bLog.value=(r.data||[]).map(l=>({...l,student:{id:l.student_id,ad:l.student_ad,soyad:l.student_soyad}}));failedC.value=bLog.value.filter(l=>l.durum==='failed').length;}catch(e){}}
+    async function loadBLog(){
+      bLogLoading.value=true;
+      try{
+        const params={per_page:500};
+        if(bLogFilter.value)params.durum=bLogFilter.value;
+        const r=await api('GET','bildirim/log',null,params);
+        const data=(r.data?.data||r.data)||[];
+        bLog.value=data.map(l=>({...l,student:{id:l.student_id,ad:l.student_ad,soyad:l.student_soyad}}));
+        failedC.value=bLog.value.filter(l=>l.durum==='failed').length;
+      }catch(e){}
+      bLogLoading.value=false;
+    }
     async function loadTemplates(){try{const r=await api('GET','sablonlar');templates.value=r.data||[];}catch(e){}}
     function applyTemplate(id){const t=templates.value.find(t=>t.id==id);if(t){bF.value.mesaj=t.icerik;bF.value.sablon_tipi=t.kod;}}
     async function sendBildirim(){
@@ -1297,10 +1510,10 @@ createApp({
       if(p==='ayarlar')await loadAll();
     });
 
-    onMounted(()=>{if(token.value){loadAll();loadCalendar();}});
+    onMounted(()=>{if(token.value){loadAll();loadCalendar();startTokenExpiryCheck();}});
 
     return{
-      loggedIn,user,initials,rolStr,isAdmin,lf,lLoad,loginErr,doLogin,doLogout,
+      loggedIn,user,initials,rolStr,isAdmin,lf,lLoad,loginErr,loginBlocked,loginCountdown,doLogin,doLogout,
       page,pTitle,navItems,sbOpen,goTo,loading,ready,failedC,reload,
       stats,kritikList,okunmamisNotlar,okul,
       calYear,calMonth,calMonthName,calDays,calData,hovDay,dayKey,isToday,prevMonth,nextMonth,
@@ -1308,9 +1521,10 @@ createApp({
       oGrup,mezunlar,selectedStudents,mezunYapModal,mezunYil,mezunYilOptions,mezunYilFilter,mezunYillar,loadStudentsByGrup,toggleSelectAll,mezunYap,mezunuGeriAl,
       printModal,printSinif,printCols,doPrint,
       oModal,editO,oF,fErr,fSaving,openOModal,saveOgrenci,
+      tcGecerli,telGecerli,formatTel,fotoFile,fotoPreview,onFotoChange,
       devTarih,devSinif,devState,devSaving,devList,devStudents,devGelmediC,devMazC,setDev,hepsiniGeldi,loadDevList,saveDevamsizlik,
-      teacherNotes,filteredNotes,notModal,nF,notFilter,noteDetail,resetNF,saveNote,markNoteRead,deleteNote,
-      bLog,bF,bSending,copied,templates,sablonModal,editSablon,sablonF,loadBLog,applyTemplate,sendBildirim,retryB,markManuel,copyMsg,openSablonEdit,saveSablon,
+      teacherNotes,filteredNotes,notModal,nF,notFilter,notQ,notKatFilter,notOnemFilter,noteDetail,resetNF,saveNote,markNoteRead,deleteNote,
+      bLog,bF,bSending,copied,bLogFilter,bLogLoading,templates,sablonModal,editSablon,sablonF,loadBLog,applyTemplate,sendBildirim,retryB,markManuel,copyMsg,openSablonEdit,saveSablon,
       raporData,rQ,filteredRapor,
       allUsers,uRolFilter,filteredUsers,uModal,editU,uF,openUModal,saveUser,toggleUserAktif,deleteUser,
       ayarF,sinifModal,editSinif,sinifF,saveAyarlar,openSinifEdit,saveSinif,deleteSinif,

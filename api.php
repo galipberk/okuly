@@ -99,7 +99,7 @@ if(empty(trim($uri,'/'))&&!empty($_GET['_r'])) $uri=$_GET['_r'];
 $parts=array_values(array_filter(explode('/',trim($uri,'/'))));
 $route=$parts[0]??'';
 $id=isset($parts[1])&&is_numeric($parts[1])?(int)$parts[1]:null;
-$sub=$parts[1]??'';
+$sub=$parts[2]??'';
 $sub2=$parts[2]??'';
 
 match($route){
@@ -123,15 +123,63 @@ match($route){
 // ============================================================
 //  AUTH
 // ============================================================
+// ── Brute-force koruma (login_attempts tablosu yoksa oluştur) ──────────
+function ensureLoginAttemptsTable():void{
+    try{db()->exec("CREATE TABLE IF NOT EXISTS login_attempts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        ip VARCHAR(45) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        tarih DATETIME NOT NULL,
+        basarili TINYINT(1) DEFAULT 0,
+        INDEX idx_ip_tarih (ip, tarih),
+        INDEX idx_email_tarih (email, tarih)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");}
+    catch(\Throwable $e){}
+}
+function getClientIp():string{
+    foreach(['HTTP_CF_CONNECTING_IP','HTTP_X_FORWARDED_FOR','HTTP_X_REAL_IP','REMOTE_ADDR'] as $k){
+        if(!empty($_SERVER[$k])){$ip=trim(explode(',',$_SERVER[$k])[0]);if(filter_var($ip,FILTER_VALIDATE_IP))return $ip;}
+    }
+    return $_SERVER['REMOTE_ADDR']??'0.0.0.0';
+}
+function checkBruteForce(string $ip, string $email):void{
+    ensureLoginAttemptsTable();
+    $window=date('Y-m-d H:i:s',time()-900); // son 15 dakika
+    // IP bazlı limit: 10 başarısız deneme
+    $ipCount=(int)(qOne('SELECT COUNT(*) c FROM login_attempts WHERE ip=? AND tarih>? AND basarili=0',[$ip,$window])['c']??0);
+    if($ipCount>=10){
+        $wait=ceil((strtotime(qOne('SELECT MAX(tarih) t FROM login_attempts WHERE ip=? AND basarili=0',[$ip])['t']??'now')+900-time())/60);
+        err("Çok fazla başarısız giriş denemesi. Lütfen {$wait} dakika bekleyiniz.",429);
+    }
+    // Email bazlı limit: 5 başarısız deneme
+    $emailCount=(int)(qOne('SELECT COUNT(*) c FROM login_attempts WHERE email=? AND tarih>? AND basarili=0',[$email,$window])['c']??0);
+    if($emailCount>=5){
+        err('Bu hesap için çok fazla başarısız giriş denemesi. Lütfen 15 dakika sonra tekrar deneyin.',429);
+    }
+}
+function logLoginAttempt(string $ip,string $email,bool $basarili):void{
+    try{qRun('INSERT INTO login_attempts (ip,email,tarih,basarili) VALUES (?,?,?,?)',[$ip,$email,now_str(),$basarili?1:0]);}
+    catch(\Throwable $e){}
+    // 24 saatten eski kayıtları temizle (rastgele %5 ihtimalle)
+    if(rand(1,20)===1){try{qRun('DELETE FROM login_attempts WHERE tarih<?',[date('Y-m-d H:i:s',time()-86400)]);}catch(\Throwable $e){}}
+}
+
 function rAuth(string $m,string $s):void{
     global $CFG;
     if($m==='POST'&&$s==='giris'){
         $b=body();$e=trim($b['email']??'');$p=$b['sifre']??'';
         if(!$e||!$p)err('E-posta ve sifre gerekli');
+        $ip=getClientIp();
+        checkBruteForce($ip,$e);
         $u=qOne('SELECT * FROM users WHERE email=? AND aktif=1',[$e]);
-        if(!$u||!password_verify($p,$u['sifre']))err('Hatali e-posta veya sifre',401);
-        $mob=($b['platform']??'')==='mobile';
-        $exp=time()+($mob?$CFG['token']['mobile']:$CFG['token']['web']);
+        if(!$u||!password_verify($p,$u['sifre'])){
+            logLoginAttempt($ip,$e,false);
+            err('Hatalı e-posta veya şifre',401);
+        }
+        logLoginAttempt($ip,$e,true);
+        // Oturum süresi: admin için 60 dakika, diğerleri için config'deki süre
+        $is_admin=($u['rol']==='admin');
+        $exp=time()+($is_admin?3600:($CFG['token']['web']??86400));
         $tok=tokenCreate(['sub'=>$u['id'],'email'=>$u['email'],'rol'=>$u['rol'],'inst'=>$u['institution_id']??1,'exp'=>$exp]);
         qRun('UPDATE users SET son_giris=? WHERE id=?',[now_str(),$u['id']]);
         setcookie('okul_token',$tok,['expires'=>$exp,'path'=>'/','samesite'=>'Lax']);
@@ -303,6 +351,21 @@ function rDersler(string $m,?int $id):void{
     err('Endpoint yok',404);
 }
 
+// ── TC Kimlik No Doğrulama ─────────────────────────────────────────────
+function validateTC(string $tc):bool{
+    if(!preg_match('/^[1-9][0-9]{10}$/',$tc))return false;
+    $d=array_map('intval',str_split($tc));
+    $t1=($d[0]+$d[2]+$d[4]+$d[6]+$d[8])*7-($d[1]+$d[3]+$d[5]+$d[7]);
+    if(($t1%10)!==$d[9])return false;
+    $t2=array_sum(array_slice($d,0,10))%10;
+    return $t2===$d[10];
+}
+// ── Telefon Format Kontrolü (05xx ile başlamalı) ───────────────────────
+function validatePhone(string $tel):bool{
+    $t=preg_replace('/[\s\-\(\)]/','',trim($tel));
+    return (bool)preg_match('/^05[0-9]{9}$/',$t);
+}
+
 // ============================================================
 //  ÖĞRENCİLER
 // ============================================================
@@ -353,9 +416,40 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
         ok($s);
     }
 
+    // Öğrenci fotoğraf yükleme
+    if($m==='POST'&&$sub==='fotograf'){
+        auth(['admin']);
+        $sid=$id;  // ✅ $id zaten parameter'ı
+        if(!$sid)err('Öğrenci ID gerekli');
+        if(empty($_FILES['fotograf']))err('Dosya yüklenmedi');
+        $f=$_FILES['fotograf'];
+        $allowed=['image/jpeg','image/png','image/webp','image/gif'];
+        if(!in_array($f['type']??'',$allowed))err('Sadece JPEG, PNG, WebP formatları kabul edilir');
+        if(($f['size']??0)>3*1024*1024)err('Dosya boyutu 3MB\'yi aşamaz');
+        $dir=__DIR__.'/uploads/ogrenci/';
+        if(!is_dir($dir))mkdir($dir,0755,true);
+        $ext=pathinfo($f['name'],PATHINFO_EXTENSION);
+        $fname='ogrenci_'.(int)$sid.'_'.time().'.'.$ext;
+        if(!move_uploaded_file($f['tmp_name'],$dir.$fname))err('Dosya yüklenemedi',500);
+        // Eski fotoğrafı sil
+        $old=qOne('SELECT fotograf FROM students WHERE id=?',[(int)$sid]);
+        if(!empty($old['fotograf'])){$oldPath=__DIR__.'/uploads/ogrenci/'.basename($old['fotograf']);if(file_exists($oldPath))@unlink($oldPath);}
+        qRun('UPDATE students SET fotograf=? WHERE id=?',['uploads/ogrenci/'.$fname,(int)$sid]);
+        ok(['url'=>'uploads/ogrenci/'.$fname],'Fotoğraf yüklendi');
+    }
+
     if($m==='POST'){
         auth(['admin']);$b=body();
         if(!$b['ad']||!$b['soyad'])err('Ad ve soyad gerekli');
+        // TC doğrulama
+        if(!empty($b['tc_no'])){
+            if(!preg_match('/^[0-9]{11}$/',$b['tc_no']))err('TC Kimlik No 11 rakamdan oluşmalıdır');
+            if(!validateTC($b['tc_no']))err('Geçersiz TC Kimlik Numarası');
+        }
+        // Telefon doğrulama
+        if(!empty($b['baba_tel'])&&!validatePhone($b['baba_tel']))err('Baba telefonu 05 ile başlayan 11 haneli formatta olmalıdır (05xx xxx xx xx)');
+        if(!empty($b['anne_tel'])&&!validatePhone($b['anne_tel']))err('Anne telefonu 05 ile başlayan 11 haneli formatta olmalıdır (05xx xxx xx xx)');
+        if(!empty($b['acil_tel'])&&!validatePhone($b['acil_tel']))err('Acil telefonu 05 ile başlayan 11 haneli formatta olmalıdır');
         $no=$b['kurum_no']??('OGR-'.date('Y').'-'.str_pad((qOne('SELECT IFNULL(MAX(id),0)+1 n FROM students')['n']??1),4,'0',STR_PAD_LEFT));
         try{
             $nid=qRun('INSERT INTO students (institution_id,sinif_id,ogrenci_turu,danisman_id,ogrenci_no,tc_no,kurum_no,ad,soyad,dogum_tarihi,cinsiyet,okul_adi,anne_adi,anne_tel,baba_adi,baba_tel,bildirim_tercih,acil_tel,saglik_notu,adres,yarisma_turu,yarisma_alani,odeme_durumu,kayit_tutari,odeme_notu) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
@@ -372,6 +466,15 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
 
     if($m==='PUT'&&$id){
         auth(['admin']);$b=body();
+        // TC doğrulama
+        if(isset($b['tc_no'])&&$b['tc_no']!==''&&$b['tc_no']!==null){
+            if(!preg_match('/^[0-9]{11}$/',$b['tc_no']))err('TC Kimlik No 11 rakamdan oluşmalıdır');
+            if(!validateTC($b['tc_no']))err('Geçersiz TC Kimlik Numarası');
+        }
+        // Telefon doğrulama
+        if(!empty($b['baba_tel'])&&!validatePhone($b['baba_tel']))err('Baba telefonu 05 ile başlayan 11 haneli formatta olmalıdır');
+        if(!empty($b['anne_tel'])&&!validatePhone($b['anne_tel']))err('Anne telefonu 05 ile başlayan 11 haneli formatta olmalıdır');
+        if(!empty($b['acil_tel'])&&!validatePhone($b['acil_tel']))err('Acil telefonu 05 ile başlayan 11 haneli formatta olmalıdır');
         $FIELDS=['sinif_id','ogrenci_turu','danisman_id','tc_no','kurum_no','ad','soyad','dogum_tarihi','cinsiyet','okul_adi','anne_adi','anne_tel','baba_adi','baba_tel','bildirim_tercih','acil_tel','saglik_notu','adres','yarisma_turu','yarisma_alani','odeme_durumu','kayit_tutari','odeme_notu'];
         $set=[];$vals=[];foreach($FIELDS as $f) if(array_key_exists($f,$b)){$set[]="$f=?";$vals[]=$b[$f];}
         if($set){try{$vals[]=$id;qRun('UPDATE students SET '.implode(',',$set).' WHERE id=?',$vals);}catch(\PDOException $e){$temel=['sinif_id','ad','soyad','dogum_tarihi','cinsiyet','acil_tel','saglik_notu'];$s2=[];$v2=[];foreach($temel as $f) if(array_key_exists($f,$b)){$s2[]="$f=?";$v2[]=$b[$f];}if($s2){$v2[]=$id;qRun('UPDATE students SET '.implode(',',$s2).' WHERE id=?',$v2);}}}
@@ -536,7 +639,8 @@ function rOgretmenNot(string $m,?int $id,string $sub):void{
         if($p['rol']==='veli'){$sql.=' AND n.veliye_gorunsun=1 AND 1=0';} // veli_id kolonu yok
         if(!empty($_GET['student_id'])){$sql.=' AND n.student_id=?';$params[]=(int)$_GET['student_id'];}
         if(isset($_GET['is_read'])){$sql.=' AND n.is_read=?';$params[]=(int)$_GET['is_read'];}
-        ok(['data'=>q($sql.' ORDER BY n.olusturma DESC LIMIT 100',$params)]);
+        $per=(int)($_GET['per_page']??500);if($per<1||$per>5000)$per=500;
+        ok(['data'=>q($sql.' ORDER BY n.olusturma DESC LIMIT '.$per,$params)]);
     }
 
     if($m==='POST'){
@@ -589,15 +693,18 @@ function rBildirim(string $m,string $sub,?int $id):void{
         $sql='SELECT n.*,s.ad student_ad,s.soyad student_soyad FROM notification_logs n JOIN students s ON s.id=n.student_id WHERE n.institution_id=?';
         $params=[$inst];
         if(!empty($_GET['durum'])){$sql.=' AND n.durum=?';$params[]=$_GET['durum'];}
-        $sql.=' ORDER BY n.olusturma DESC LIMIT 100';
+        $per=(int)($_GET['per_page']??200);if($per<1||$per>1000)$per=200;
+        $sql.=' ORDER BY n.olusturma DESC LIMIT '.$per;
         $rows=q($sql,$params);
         $rows=array_map(fn($r)=>array_merge($r,['student'=>['id'=>$r['student_id'],'ad'=>$r['student_ad'],'soyad'=>$r['student_soyad']]]),$rows);
         ok(['data'=>$rows]);
     }
 
-    // Manuel gonderildi olarak isaretle
+    // Manuel gonderildi olarak isaretle (pending ve failed durumlar için)
     if($m==='PUT'&&$sub==='manuel'&&$id){
-        qRun("UPDATE notification_logs SET durum='manuel_gonderildi' WHERE id=?",[$id]);
+        $log=qOne('SELECT id,durum FROM notification_logs WHERE id=? AND institution_id=?',[$id,$inst]);
+        if(!$log)err('Bildirim bulunamadı',404);
+        qRun("UPDATE notification_logs SET durum='manuel_gonderildi',gonderim_tarihi=? WHERE id=?",[ now_str(),$id]);
         ok(null,'Manuel gonderildi olarak isaretlendi');
     }
 
