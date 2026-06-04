@@ -390,6 +390,20 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
                 ok(q($sql,$params));
             }catch(\PDOException $e){ok([]);}
         }
+        else if($grupFilter==='pasif'){
+            // Pasif (ayrılan) öğrenciler
+            try{
+                $sql='SELECT s.*,si.ad sinif_adi,
+                      0 devamsizlik_orani, 0 gelmedi_sayi, 0 mazeret_sayi,
+                      u2.ad danisman_adi, u2.soyad danisman_soyad
+                      FROM students s
+                      LEFT JOIN siniflar si ON si.id=s.sinif_id
+                      LEFT JOIN users u2 ON u2.id=s.danisman_id
+                      WHERE s.institution_id=? AND s.aktif=0 AND (s.mezun=0 OR s.mezun IS NULL)
+                      ORDER BY s.ayrilma_tarihi DESC, s.soyad, s.ad';
+                ok(q($sql,$params));
+            }catch(\PDOException $e){ok([]);}
+        }
         $sql='SELECT s.*,si.ad sinif_adi,
               COALESCE(ROUND(SUM(CASE WHEN a.durum="gelmedi" THEN 1 ELSE 0 END)/NULLIF(COUNT(a.id),0)*100,1),0) devamsizlik_orani,
               COALESCE(SUM(CASE WHEN a.durum="gelmedi" THEN 1 ELSE 0 END),0) gelmedi_sayi,
@@ -437,6 +451,23 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
         if(!empty($old['fotograf'])){$oldPath=__DIR__.'/uploads/ogrenci/'.basename($old['fotograf']);if(file_exists($oldPath))@unlink($oldPath);}
         qRun('UPDATE students SET fotograf=? WHERE id=?',['uploads/ogrenci/'.$fname,(int)$sid]);
         ok(['url'=>'uploads/ogrenci/'.$fname],'Fotoğraf yüklendi');
+    }
+
+    // Öğrenci pasif yap (okulu bırak)
+    if($m==='PUT'&&$sub==='pasif'&&$id){
+        auth(['admin']);$b=body();
+        if(!$b['ayrilma_nedeni'])err('Ayrılma nedeni gerekli');
+        qRun('UPDATE students SET aktif=0,ayrilma_nedeni=?,ayrilma_tarihi=? WHERE id=? AND institution_id=?',
+            [$b['ayrilma_nedeni'],now_str(),$id,$inst]);
+        ok(null,'Öğrenci pasif hale getirildi');
+    }
+    
+    // Öğrenci pasif'ten aktif yap (geri al)
+    if($m==='PUT'&&$sub==='aktifle'&&$id){
+        auth(['admin']);
+        qRun('UPDATE students SET aktif=1,ayrilma_nedeni=NULL,ayrilma_tarihi=NULL WHERE id=? AND institution_id=?',
+            [$id,$inst]);
+        ok(null,'Öğrenci aktif hale getirildi');
     }
 
     if($m==='POST'){

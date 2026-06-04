@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Anamakine: localhost:3306
--- Üretim Zamanı: 01 Haz 2026, 05:51:02
+-- Üretim Zamanı: 04 Haz 2026, 21:16:34
 -- Sunucu sürümü: 10.4.34-MariaDB
 -- PHP Sürümü: 8.2.31
 
@@ -99,7 +99,7 @@ CREATE TABLE `institutions` (
 --
 
 INSERT INTO `institutions` (`id`, `ad`, `slug`, `telefon`, `whatsapp`, `email`, `adres`, `aktif`, `olusturma`) VALUES
-(1, 'Eğitim Kurumunuz', 'kurum', '04622234466', '04622234466', 'info@kodlayap.tr', NULL, 1, '2026-05-31 09:29:54');
+(1, 'Deneme Eğitim Kurumunuz', 'kurum', '04622234455', '04622234455', 'info@deneme.tr', NULL, 1, '2026-05-31 09:29:54');
 
 -- --------------------------------------------------------
 
@@ -145,6 +145,32 @@ CREATE TABLE `lessons` (
   `renk` varchar(7) DEFAULT '#4f46e5',
   `aktif` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Tablo için tablo yapısı `login_attempts`
+--
+
+CREATE TABLE `login_attempts` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `ip` varchar(45) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `tarih` datetime NOT NULL,
+  `basarili` tinyint(1) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Tablo döküm verisi `login_attempts`
+--
+
+INSERT INTO `login_attempts` (`id`, `ip`, `email`, `tarih`, `basarili`) VALUES
+(1, '92.44.26.122', 'galipberk@gmail.com', '2026-06-02 23:29:17', 0),
+(2, '92.44.26.122', 'galipberk@gmail.com', '2026-06-02 23:29:22', 1),
+(3, '92.44.26.122', 'galipberk@gmail.com', '2026-06-04 00:15:40', 1),
+(4, '92.44.26.122', 'galipberk@gmail.com', '2026-06-04 01:32:48', 1),
+(5, '176.54.189.203', 'galipberk@gmail.com', '2026-06-04 12:05:47', 1),
+(6, '92.44.26.122', 'galipberk@gmail.com', '2026-06-04 20:57:02', 1);
 
 -- --------------------------------------------------------
 
@@ -241,8 +267,8 @@ INSERT INTO `siniflar` (`id`, `institution_id`, `ad`, `donem`, `kapasite`, `renk
 (1, 1, 'GRAFİK', '2024-2025', 40, '#7c3aed', 1, '2026-05-31 09:29:54'),
 (2, 1, 'ROBOTİK', '2024-2025', 40, '#0369a1', 1, '2026-05-31 09:29:54'),
 (3, 1, 'ELEKTRONİK', '2024-2025', 40, '#b45309', 1, '2026-05-31 09:29:54'),
-(4, 1, '2024-2025 A Şubesi', '2024-2025', 40, '#4f46e5', 1, '2026-05-31 09:37:59'),
-(5, 1, '2024-2025 A Şubesi', '2024-2025', 40, '#4f46e5', 1, '2026-05-31 10:26:30');
+(4, 1, '2024-2025 A Şubesi', '2024-2025', 40, '#4f46e5', 0, '2026-05-31 09:37:59'),
+(5, 1, '2024-2025 A Şubesi', '2024-2025', 40, '#4f46e5', 0, '2026-05-31 10:26:30');
 
 -- --------------------------------------------------------
 
@@ -263,7 +289,6 @@ CREATE TABLE `students` (
   `soyad` varchar(80) NOT NULL,
   `dogum_tarihi` date DEFAULT NULL,
   `cinsiyet` enum('E','K') DEFAULT NULL,
-  `foto` varchar(255) DEFAULT NULL,
   `okul_adi` varchar(200) DEFAULT NULL,
   `baba_adi` varchar(80) DEFAULT NULL,
   `baba_tel` varchar(20) DEFAULT NULL,
@@ -273,6 +298,7 @@ CREATE TABLE `students` (
   `acil_tel` varchar(20) DEFAULT NULL,
   `adres` text DEFAULT NULL,
   `saglik_notu` text DEFAULT NULL,
+  `fotograf` varchar(255) DEFAULT NULL,
   `yarisma_turu` varchar(150) DEFAULT NULL,
   `yarisma_alani` varchar(150) DEFAULT NULL,
   `odeme_durumu` enum('odendi','bekliyor','taksit','muaf') NOT NULL DEFAULT 'bekliyor',
@@ -280,16 +306,23 @@ CREATE TABLE `students` (
   `odeme_notu` text DEFAULT NULL,
   `kayit_tarihi` date DEFAULT curdate(),
   `aktif` tinyint(1) DEFAULT 1,
+  `ayrilma_nedeni` varchar(255) DEFAULT NULL,
+  `ayrilma_tarihi` datetime DEFAULT NULL,
   `olusturma` timestamp NOT NULL DEFAULT current_timestamp(),
-  `guncelleme` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `guncelleme` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `mezun` tinyint(1) DEFAULT 0,
+  `mezuniyet_yili` year(4) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci;
 
 --
 -- Tablo döküm verisi `students`
 --
 
-INSERT INTO `students` (`id`, `institution_id`, `sinif_id`, `ogrenci_turu`, `danisman_id`, `ogrenci_no`, `kurum_no`, `tc_no`, `ad`, `soyad`, `dogum_tarihi`, `cinsiyet`, `foto`, `okul_adi`, `baba_adi`, `baba_tel`, `anne_adi`, `anne_tel`, `bildirim_tercih`, `acil_tel`, `adres`, `saglik_notu`, `yarisma_turu`, `yarisma_alani`, `odeme_durumu`, `kayit_tutari`, `odeme_notu`, `kayit_tarihi`, `aktif`, `olusturma`, `guncelleme`) VALUES
-(3, 1, 0, 'egitim', NULL, '2026', NULL, NULL, 'Galip', 'BERK', '1111-01-01', 'E', NULL, NULL, NULL, NULL, NULL, NULL, 'baba', '54654654654', NULL, 'sdas', NULL, NULL, 'bekliyor', 0.00, NULL, '2026-05-31', 1, '2026-05-31 19:25:35', '2026-05-31 19:25:35');
+INSERT INTO `students` (`id`, `institution_id`, `sinif_id`, `ogrenci_turu`, `danisman_id`, `ogrenci_no`, `kurum_no`, `tc_no`, `ad`, `soyad`, `dogum_tarihi`, `cinsiyet`, `okul_adi`, `baba_adi`, `baba_tel`, `anne_adi`, `anne_tel`, `bildirim_tercih`, `acil_tel`, `adres`, `saglik_notu`, `fotograf`, `yarisma_turu`, `yarisma_alani`, `odeme_durumu`, `kayit_tutari`, `odeme_notu`, `kayit_tarihi`, `aktif`, `ayrilma_nedeni`, `ayrilma_tarihi`, `olusturma`, `guncelleme`, `mezun`, `mezuniyet_yili`) VALUES
+(3, 1, 0, 'egitim', NULL, '2026', NULL, NULL, 'Galip', 'BERK', '1111-01-01', 'E', NULL, NULL, NULL, NULL, NULL, 'baba', '54654654654', NULL, 'sdas', NULL, NULL, NULL, 'bekliyor', 0.00, NULL, '2026-05-31', 0, NULL, NULL, '2026-05-31 19:25:35', '2026-06-01 03:54:42', 1, '2024'),
+(4, 1, 3, 'egitim', 0, '2026', '2026', '17816786622', 'Eğitim', 'b', '0000-00-00', 'K', '223', '21321', '05777777777', '32132', '05999999999', 'baba', '05333333333', '', 'saglık not', 'uploads/ogrenci/ogrenci_4_1780433251.jpg', '', '', 'odendi', 7000.00, 'ödeme not', '2026-06-01', 0, 'devamsizlik', '2026-06-04 00:32:46', '2026-06-01 03:52:16', '2026-06-03 21:32:46', 0, NULL),
+(5, 1, 3, 'proje', 7, 's', 's', '17816786622', 'proje1', 'as', '2222-02-22', 'K', 'okul', 'sad', '05555555555', 'poı', '05444444444', 'baba', '05888888888', '', 'ds', NULL, 'tekn', 'robot', 'muaf', 4.00, 'ödemen', '2026-06-01', 1, NULL, NULL, '2026-06-01 03:53:56', '2026-06-02 20:31:09', 0, NULL),
+(6, 1, 3, 'egitim', 0, '20264', '20264', '17816786622', 'Galip2', 'BERK', '1111-01-01', 'K', 'sdd', 'baba', '05555555555', 'anne', '05444444444', 'anne', '', '', 'alerhi', 'uploads/ogrenci/ogrenci_6_1780526047.jpg', '', '', 'taksit', 0.00, 'çdeme', '2026-06-04', 1, NULL, NULL, '2026-06-03 22:34:06', '2026-06-03 22:34:07', 0, NULL);
 
 -- --------------------------------------------------------
 
@@ -338,9 +371,9 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `institution_id`, `ad`, `soyad`, `email`, `telefon`, `sifre`, `rol`, `aktif`, `son_giris`, `olusturma`, `guncelleme`) VALUES
-(1, 1, 'Sistem', 'Yöneticisi', 'admin@kodlayap.tr', '04622234466', '$2y$10$MzdAHUawQSn5T4RncKDV5ekZ3nCpsXNgYzsKLuwtEfaWnmzYVFTD6', 'admin', 1, '2026-05-31 17:50:55', '2026-05-31 09:29:54', '2026-05-31 17:50:55'),
-(2, 1, 'galip', 'galip', 'galipberk@gmail.com', '05301110001', '$2y$10$9ixV7TndNRlT8HGr8v5DB.9LxlunYIYXFVsuzY6/C1LVKV1zlOOWi', 'admin', 1, '2026-05-31 11:15:02', '2026-05-31 09:29:54', '2026-05-31 11:15:02'),
-(7, 1, 'Galip', 'BERK', 'g@g.net', '', '$2y$10$tkOndZnjFfiSZGpxdTsS1eGaR6JVu2wXok2DVNqVpLWFpCGhLJSIm', 'ogretmen', 1, NULL, '2026-05-31 11:19:21', '2026-05-31 11:19:21');
+(1, 1, 'Sistem', 'Yöneticisi', 'admin@kodlayap.tr', '04622234466', '$2y$10$MzdAHUawQSn5T4RncKDV5ekZ3nCpsXNgYzsKLuwtEfaWnmzYVFTD6', 'admin', 1, '2026-06-01 08:06:41', '2026-05-31 09:29:54', '2026-06-01 08:06:41'),
+(2, 1, 'galip', 'galip', 'galipberk@gmail.com', '05301110001', '$2y$10$9ixV7TndNRlT8HGr8v5DB.9LxlunYIYXFVsuzY6/C1LVKV1zlOOWi', 'admin', 1, '2026-06-04 17:57:02', '2026-05-31 09:29:54', '2026-06-04 17:57:02'),
+(7, 1, 'Galip', 'BERK', 'g@g.net', '', '$2y$10$Oug7eBvn3MtF5a.fBZvcjet2bc0PVaGMbwQ7QITX93OT/qTLAhoxW', 'ogretmen', 1, '2026-06-01 17:36:09', '2026-05-31 11:19:21', '2026-06-01 17:36:09');
 
 --
 -- Dökümü yapılmış tablolar için indeksler
@@ -391,6 +424,14 @@ ALTER TABLE `lessons`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_ogretmen` (`ogretmen_id`),
   ADD KEY `idx_sinif` (`sinif_id`);
+
+--
+-- Tablo için indeksler `login_attempts`
+--
+ALTER TABLE `login_attempts`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_ip_tarih` (`ip`,`tarih`),
+  ADD KEY `idx_email_tarih` (`email`,`tarih`);
 
 --
 -- Tablo için indeksler `message_templates`
@@ -457,7 +498,7 @@ ALTER TABLE `users`
 -- Tablo için AUTO_INCREMENT değeri `attendance`
 --
 ALTER TABLE `attendance`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `audit_logs`
@@ -490,6 +531,12 @@ ALTER TABLE `lessons`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
+-- Tablo için AUTO_INCREMENT değeri `login_attempts`
+--
+ALTER TABLE `login_attempts`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+
+--
 -- Tablo için AUTO_INCREMENT değeri `message_templates`
 --
 ALTER TABLE `message_templates`
@@ -499,7 +546,7 @@ ALTER TABLE `message_templates`
 -- Tablo için AUTO_INCREMENT değeri `notification_logs`
 --
 ALTER TABLE `notification_logs`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `payments`
@@ -517,13 +564,13 @@ ALTER TABLE `siniflar`
 -- Tablo için AUTO_INCREMENT değeri `students`
 --
 ALTER TABLE `students`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `teacher_notes`
 --
 ALTER TABLE `teacher_notes`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `users`

@@ -366,13 +366,14 @@ a{color:var(--acc);text-decoration:none}
         <div style="display:flex;gap:6px;margin-bottom:12px">
           <button :class="'btn btn-sm '+(oGrup==='egitim'?'btn-p':'btn-s')" @click="oGrup='egitim';loadStudentsByGrup()"><i class="ti ti-school"></i>Eğitim Öğrencileri</button>
           <button :class="'btn btn-sm '+(oGrup==='proje'?'btn-p':'btn-s')" @click="oGrup='proje';loadStudentsByGrup()"><i class="ti ti-flask"></i>Proje Öğrencileri</button>
+          <button :class="'btn btn-sm '+(oGrup==='pasif'?'btn-p':'btn-s')" @click="oGrup='pasif';loadStudentsByGrup()" title="Pasif/Ayrılan Öğrenciler"><i class="ti ti-circle-x"></i>Pasif Öğrenciler</button>
           <button :class="'btn btn-sm '+(oGrup==='mezun'?'btn-p':'btn-s')" @click="oGrup='mezun';loadStudentsByGrup()"><i class="ti ti-certificate"></i>Mezun Öğrenciler</button>
         </div>
 
         <div class="card">
           <div class="ch">
             <span class="ct"><i class="ti ti-users"></i>
-              <span>{{ oGrup==='egitim' ? 'Eğitim Öğrencileri' : oGrup==='proje' ? 'Proje Öğrencileri' : 'Mezun Öğrenciler' }} ({{ filteredStudents.length }})</span>
+              <span>{{ oGrup==='egitim' ? 'Eğitim Öğrencileri' : oGrup==='proje' ? 'Proje Öğrencileri' : oGrup==='pasif' ? 'Pasif Öğrenciler' : 'Mezun Öğrenciler' }} ({{ filteredStudents.length }})</span>
             </span>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
               <!-- Tür filtresi (sadece aktif listede) -->
@@ -407,12 +408,14 @@ a{color:var(--acc);text-decoration:none}
                 <th>No / Kurum No</th><th>Ad Soyad</th><th>Tür</th><th>Sınıf</th>
                 <th>TC</th><th>Okul</th><th>Baba / Anne</th>
                 <th v-if="oGrup==='proje'">Danışman</th>
-                <th v-if="oGrup!=='mezun'">Devamsızlık</th><th v-if="oGrup!=='mezun'">Ödeme</th><th v-if="oGrup!=='mezun'">Yarışma</th>
+                <th v-if="oGrup==='pasif'">Ayrılma Nedeni</th>
+                <th v-if="oGrup==='pasif'">Ayrılma Tarihi</th>
+                <th v-if="oGrup!=='mezun'&&oGrup!=='pasif'">Devamsızlık</th><th v-if="oGrup!=='mezun'&&oGrup!=='pasif'">Ödeme</th><th v-if="oGrup!=='mezun'&&oGrup!=='pasif'">Yarışma</th>
                 <th v-if="oGrup==='mezun'">Mezuniyet Yılı</th>
                 <th v-if="isAdmin"></th>
               </tr></thead>
               <tbody>
-                <tr v-if="!filteredStudents.length"><td :colspan="isAdmin?12:11"><div class="empty"><i class="ti ti-inbox"></i><p>{{ oGrup==='mezun'?'Mezun öğrenci yok':'Öğrenci yok' }}</p></div></td></tr>
+                <tr v-if="!filteredStudents.length"><td :colspan="isAdmin?12:11"><div class="empty"><i class="ti ti-inbox"></i><p>{{ oGrup==='mezun'?'Mezun öğrenci yok':oGrup==='pasif'?'Pasif öğrenci yok':'Öğrenci yok' }}</p></div></td></tr>
                 <tr v-for="s in filteredStudents" :key="s.id">
                   <td v-if="isAdmin"><input type="checkbox" :value="s.id" v-model="selectedStudents" style="cursor:pointer"></td>
                   <td style="font-family:monospace;font-size:11px">
@@ -445,7 +448,23 @@ a{color:var(--acc);text-decoration:none}
                     <span v-if="s.danisman_adi">👨‍🏫 {{ s.danisman_adi }} {{ s.danisman_soyad }}</span>
                     <span v-else style="color:var(--t3)">—</span>
                   </td>
-                  <template v-if="oGrup!=='mezun'">
+                  <td v-if="oGrup==='pasif'" style="font-size:12px">
+                    <span :class="'bdg '+(s.ayrilma_nedeni==='devamsizlik'?'b-e':s.ayrilma_nedeni==='akademik_basarisizlik'?'b-w':s.ayrilma_nedeni==='diger'?'b-i':'b-g')">
+                      {{ {
+                        devamsizlik: 'Devamsızlık',
+                        akademik_basarisizlik: 'Akademik Başarısızlık',
+                        aile_nedeni: 'Aile Nedeni',
+                        isci_olmak: 'İşçi Oldu',
+                        transfer: 'Transfer',
+                        yurtdisi: 'Yurtdışı',
+                        diger: s.ayrilma_nedeni
+                      }[s.ayrilma_nedeni] || s.ayrilma_nedeni || '—' }}
+                    </span>
+                  </td>
+                  <td v-if="oGrup==='pasif'" style="font-size:12px;color:var(--t3)">
+                    {{ s.ayrilma_tarihi ? s.ayrilma_tarihi.slice(0,10) : '—' }}
+                  </td>
+                  <template v-if="oGrup!=='mezun'&&oGrup!=='pasif'">
                   <td>
                     <div style="display:flex;align-items:center;gap:5px">
                       <span class="bdg b-e" v-if="s.gelmedi_sayi>0">{{ s.gelmedi_sayi }} G</span>
@@ -470,13 +489,50 @@ a{color:var(--acc);text-decoration:none}
                   </td>
                   <td v-if="isAdmin">
                     <div style="display:flex;gap:4px">
-                      <button v-if="oGrup!=='mezun'" class="btn btn-s btn-xs" @click="openOModal(s)"><i class="ti ti-edit"></i></button>
+                      <button v-if="oGrup!=='mezun'&&oGrup!=='pasif'" class="btn btn-s btn-xs" @click="openOModal(s)"><i class="ti ti-edit"></i></button>
+                      <button v-if="oGrup!=='mezun'&&oGrup!=='pasif'&&s.aktif" class="btn btn-w btn-xs" @click="markPasif(s)" title="Pasif Yap"><i class="ti ti-circle-x"></i></button>
+                      <button v-if="oGrup==='pasif'" class="btn btn-s btn-xs" @click="aktifleOgrenci(s)" title="Aktifle"><i class="ti ti-arrow-back-up"></i></button>
                       <button v-if="oGrup==='mezun'" class="btn btn-s btn-xs" @click="selectedStudents=[s.id];mezunuGeriAl()" title="Aktife al"><i class="ti ti-arrow-back-up"></i></button>
                     </div>
                   </td>
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Pasif Yap Modal -->
+        <div v-if="pasifModal" class="mbg" @click.self="pasifModal=false">
+          <div class="modal">
+            <div class="mh"><span class="mt">⚠️ Öğrenciyi Pasif Yap</span><button class="mc" @click="pasifModal=false">✕</button></div>
+            <div class="mbody">
+              <div v-if="fErr" class="al al-e"><i class="ti ti-alert-circle"></i>{{ fErr }}</div>
+              <p style="margin-bottom:12px;font-size:13px">
+                <strong>{{ pasifStudent?.ad }} {{ pasifStudent?.soyad }}</strong> adlı öğrenciyi pasif hale getireceksiniz.
+                Bu öğrenci aktif listelerden çıkacak, ancak veriler silinmeyecektir.
+              </p>
+              <div class="fg">
+                <label>Ayrılma Nedeni *</label>
+                <select v-model="pasifNedeni">
+                  <option value="">— Seçin —</option>
+                  <option value="devamsizlik">Devamsızlık</option>
+                  <option value="akademik_basarisizlik">Akademik Başarısızlık</option>
+                  <option value="aile_nedeni">Aile Nedeni</option>
+                  <option value="isci_olmak">İşçi Olmak (Çalışmaya Başladı)</option>
+                  <option value="transfer">Transfer (Başka Okula Geçti)</option>
+                  <option value="yurtdisi">Yurtdışına Gitti</option>
+                  <option value="diger">Diğer</option>
+                </select>
+              </div>
+              <div v-if="pasifNedeni==='diger'" class="fg">
+                <label>Açıklama</label>
+                <textarea v-model="pasifAciklama" placeholder="Nedeni açıkla…" style="min-height:60px"></textarea>
+              </div>
+            </div>
+            <div class="mf">
+              <button class="btn btn-s" @click="pasifModal=false">İptal</button>
+              <button class="btn btn-e" @click="doPasif" :disabled="fSaving||!pasifNedeni"><span v-if="fSaving" class="sp"></span><span v-else>Pasif Yap</span></button>
+            </div>
           </div>
         </div>
 
@@ -1217,6 +1273,32 @@ createApp({
       reader.readAsDataURL(f);
     }
 
+    // Pasif yap
+    const pasifModal=ref(false);const pasifStudent=ref(null);const pasifNedeni=ref('');const pasifAciklama=ref('');
+    function markPasif(s){pasifStudent.value=s;pasifNedeni.value='';pasifAciklama.value='';pasifModal.value=true;}
+    async function doPasif(){
+      if(!pasifNedeni.value){fErr.value='Ayrılma nedeni seçin';return;}
+      fSaving.value=true;fErr.value='';
+      try{
+        const ned=pasifNedeni.value==='diger'?pasifAciklama.value:pasifNedeni.value;
+        await api('PUT',`ogrenciler/${pasifStudent.value.id}/pasif`,{ayrilma_nedeni:ned});
+        pasifModal.value=false;
+        await loadAll();
+        toast('Öğrenci pasif hale getirildi');
+      }catch(e){fErr.value=e.response?.data?.message||e?.message||'Hata';}
+      fSaving.value=false;
+    }
+    
+    // Pasif öğrenciyi aktif yap
+    async function aktifleOgrenci(s){
+      if(!confirm(`${s.ad} ${s.soyad} adlı öğrenciyi aktif hale getirmek istediğinize emin misiniz?`))return;
+      try{
+        await api('PUT',`ogrenciler/${s.id}/aktifle`,{});
+        await loadAll();
+        toast('Öğrenci aktif hale getirildi');
+      }catch(e){toast(e.response?.data?.message||e?.message||'Hata','e');}
+    }
+
     // Öğrenciler
     const sQ=ref('');const sTur=ref('');const sSort=ref('soyad');const sDir=ref('ASC');
     const oModal=ref(false);const editO=ref(null);const oF=ref({});const fErr=ref('');const fSaving=ref(false);
@@ -1241,6 +1323,14 @@ createApp({
         try{const r=await api('GET','ogrenciler',null,{grup:'mezun'});mezunlar.value=r.data||[];}
         catch(e){mezunlar.value=[];toast('Mezunlar yüklenemedi: '+(e?.response?.data?.message||e?.message||''),'e');}
       }
+      else if(oGrup.value==='pasif'){
+        try{const r=await api('GET','ogrenciler',null,{grup:'pasif'});students.value=r.data||[];}
+        catch(e){students.value=[];toast('Pasif öğrenciler yüklenemedi: '+(e?.response?.data?.message||e?.message||''),'e');}
+      }
+      else{
+        // Eğitim ve Proje grupları loadAll ile yüklenir
+        await loadAll();
+      }
     }
 
     function toggleSort(s){if(sSort.value===s){sDir.value=sDir.value==='ASC'?'DESC':'ASC';}else{sSort.value=s;sDir.value='ASC';}}
@@ -1251,7 +1341,9 @@ createApp({
     const filteredStudents=computed(()=>{
       let list=oGrup.value==='mezun'
         ? mezunlar.value.filter(s=>!mezunYilFilter.value||String(s.mezuniyet_yili)===String(mezunYilFilter.value))
-        : students.value.filter(s=>s.ogrenci_turu===oGrup.value);
+        : oGrup.value==='pasif'
+        ? students.value.filter(s=>!s.aktif)  // aktif=0 olan öğrenciler
+        : students.value.filter(s=>s.ogrenci_turu===oGrup.value&&s.aktif);  // aktif=1 ve tür eşleşen
       const q=sQ.value.toLowerCase();
       if(q)list=list.filter(s=>(s.ad+' '+s.soyad+' '+(s.tc_no||'')+' '+(s.ogrenci_no||'')+' '+(s.kurum_no||'')).toLowerCase().includes(q));
       return list.sort((a,b)=>{
@@ -1445,7 +1537,15 @@ createApp({
       bSending.value=false;
     }
     async function retryB(id){try{await api('POST','bildirim/tekrar-gonder',{log_id:id});toast('Yeniden gönderildi');await loadBLog();}catch(e){toast('Hata','e');}}
-    async function markManuel(id){try{await api('PUT',`bildirim/manuel/${id}`);toast('Manuel gönderildi olarak işaretlendi');await loadBLog();}catch(e){toast('Hata','e');}}
+    async function markManuel(id){
+      try{
+        await api('PUT',`bildirim/${id}/manuel`,{});
+        toast('Manuel gönderildi olarak işaretlendi');
+        await loadBLog();
+      }catch(e){
+        toast(e.response?.data?.message||'Hata','e');
+      }
+    }
     async function copyMsg(){
       if(!bF.value.mesaj){toast('Kopyalanacak mesaj yok','w');return;}
       try{await navigator.clipboard.writeText(bF.value.mesaj);copied.value=true;toast('Mesaj kopyalandı');setTimeout(()=>copied.value=false,2000);}
@@ -1545,6 +1645,7 @@ createApp({
       printModal,printSinif,printCols,doPrint,
       oModal,editO,oF,fErr,fSaving,openOModal,saveOgrenci,
       tcGecerli,telGecerli,formatTel,fotoFile,fotoPreview,onFotoChange,
+      pasifModal,pasifStudent,pasifNedeni,pasifAciklama,markPasif,doPasif,aktifleOgrenci,
       devTarih,devSinif,devState,devSaving,devList,devStudents,devGelmediC,devMazC,setDev,hepsiniGeldi,loadDevList,saveDevamsizlik,
       teacherNotes,filteredNotes,notModal,nF,notFilter,notQ,notKatFilter,notOnemFilter,noteDetail,resetNF,saveNote,markNoteRead,deleteNote,
       bLog,bF,bSending,copied,bLogFilter,bLogLoading,templates,sablonModal,editSablon,sablonF,loadBLog,applyTemplate,sendBildirim,retryB,markManuel,copyMsg,openSablonEdit,saveSablon,
