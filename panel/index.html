@@ -9,6 +9,7 @@
 <script src="/assets/js/axios.min.js"></script>
 <link rel="stylesheet" href="/assets/css/tabler-icons.min.css">
 <style>
+[v-cloak]{display:none!important}
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--nav:#0f1f3d;--nav-h:#162d56;--nav-a:#1e40af;--acc:#2563eb;--ok:#16a34a;--warn:#d97706;--err:#dc2626;--pur:#7c3aed;--bg:#f1f5f9;--card:#fff;--bdr:#e2e8f0;--t1:#0f172a;--t2:#475569;--t3:#94a3b8;--r:8px;--rs:6px}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--t1);font-size:14px;min-height:100vh}
@@ -16,7 +17,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* Sidebar */
 .sb{width:230px;flex-shrink:0;background:var(--nav);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;overflow-y:auto;transition:transform .25s}
 .main{margin-left:230px;flex:1;display:flex;flex-direction:column;min-height:100vh}
-@media(max-width:768px){.sb{transform:translateX(-100%)}.sb.open{transform:translateX(0)}.main{margin-left:0}.mob-ol{display:block!important}}
+@media(max-width:768px){.sb{transform:translateX(-100%);visibility:hidden;pointer-events:none}.sb.open{transform:translateX(0);visibility:visible;pointer-events:auto}.main{margin-left:0}.mob-ol{display:block!important}}
 .mob-ol{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99}
 .logo{padding:18px 14px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
 .logo-t{color:#fff;font-size:14px;font-weight:700}.logo-s{color:rgba(255,255,255,.35);font-size:11px;margin-top:2px}
@@ -176,7 +177,7 @@ a{color:var(--acc);text-decoration:none}
 </style>
 </head>
 <body>
-<div id="app">
+<div id="app" v-cloak>
 
 <!-- GİRİŞ -->
 <div v-if="!loggedIn" class="lbg">
@@ -194,13 +195,16 @@ a{color:var(--acc);text-decoration:none}
   </div>
 </div>
 
+<!-- YÜKLEME (giriş yapılmış ama veri henüz gelmedi) -->
+<div v-else-if="!ready" class="lbg"><div class="lc" style="align-items:center"><div class="ls" style="width:36px;height:36px;border-width:3px"></div><p style="margin-top:14px;color:var(--t3);font-size:13px">Yükleniyor…</p></div></div>
+
 <!-- ANA PANEL -->
 <div v-else class="layout">
-  <div class="mob-ol" v-show="sbOpen" @click="sbOpen=false"></div>
+  <div class="mob-ol" v-if="sbOpen" @click="sbOpen=false"></div>
   <aside class="sb" :class="{open:sbOpen}">
     <div class="logo">
       <div style="font-size:24px;margin-bottom:4px">📚</div>
-      <div class="logo-t">{{ okul.adi||'Okul Paneli' }}</div>
+      <div class="logo-t">{{ okul.okul_adi||'Okul Paneli' }}</div>
       <div class="logo-s">2024–2025</div>
     </div>
     <div style="flex:1;padding-bottom:8px">
@@ -238,7 +242,7 @@ a{color:var(--acc);text-decoration:none}
       <template v-else-if="page==='dashboard'">
         <div class="banner">
           <span class="bi">🏫</span>
-          <div><div class="bt">{{ okul.adi }}</div><div class="bs">Veli İletişim: {{ okul.telefon }}</div></div>
+          <div><div class="bt">{{ okul.okul_adi }}</div><div class="bs">Veli İletişim: {{ okul.telefon }}</div></div>
           <div class="bb">
             <a :href="'https://wa.me/90'+okul.whatsapp.replace(/\D/g,'')" target="_blank" class="btn btn-wa btn-sm"><i class="ti ti-brand-whatsapp"></i>WhatsApp</a>
             <a :href="'tel:'+okul.telefon" class="btn btn-s btn-sm" style="color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.1)"><i class="ti ti-phone"></i>{{ okul.telefon }}</a>
@@ -1198,7 +1202,7 @@ createApp({
     // Veriler
     const students=ref([]);const siniflar=ref([]);const ogretmenler=ref([]);
     const stats=ref({});const kritikList=ref([]);const okunmamisNotlar=ref([]);
-    const okul=ref({adi:'Kurum',telefon:'04622234466',whatsapp:'04622234466',devamsizlik_limit_normal:4,devamsizlik_limit_mazeret:4,devamsizlik_uyari_gun:3});
+    const okul=ref({okul_adi:'Kurum',telefon:'04622234466',whatsapp:'04622234466',devamsizlik_limit_normal:4,devamsizlik_limit_mazeret:4,devamsizlik_uyari_gun:3});
 
     async function loadAll(){
       loading.value=true;
@@ -1602,7 +1606,7 @@ createApp({
     watch(okul,(v)=>{ayarF.value={...v};});
     async function saveAyarlar(){
       fSaving.value=true;
-      try{await api('PUT','ayarlar','',ayarF.value);okul.value={...ayarF.value};toast('Ayarlar kaydedildi');}
+      try{await api('PUT','ayarlar',ayarF.value);await loadAll();toast('Ayarlar kaydedildi');}
       catch(e){toast('Kaydedilemedi','e');}
       fSaving.value=false;
     }
@@ -1633,7 +1637,7 @@ createApp({
       if(p==='ayarlar')await loadAll();
     });
 
-    onMounted(()=>{if(token.value){loadAll();loadCalendar();startTokenExpiryCheck();}});
+    onMounted(()=>{if(token.value){loadAll();loadCalendar();startTokenExpiryCheck();}else{ready.value=true;}});
 
     return{
       loggedIn,user,initials,rolStr,isAdmin,lf,lLoad,loginErr,loginBlocked,loginCountdown,doLogin,doLogout,

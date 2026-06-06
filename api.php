@@ -8,13 +8,16 @@ ini_set('display_errors', 0); // ekrana basma, yakala
 set_error_handler(function($no,$str,$file,$line){
     http_response_code(500);
     header('Content-Type: application/json');
-    echo json_encode(['ok'=>false,'message'=>"PHP Hata: $str (satir $line)"]);
+    error_log("[okuly] PHP Hata ($no): $str ($file:$line)");
+    echo json_encode(['ok'=>false,'message'=>'Sunucu hatası oluştu.']);
     exit;
 });
 set_exception_handler(function($e){
     http_response_code(500);
     header('Content-Type: application/json');
-    echo json_encode(['ok'=>false,'message'=>$e->getMessage(),'trace'=>substr($e->getTraceAsString(),0,500)]);
+    $is_db = $e instanceof PDOException;
+    error_log('[okuly] ' . get_class($e) . ': ' . $e->getMessage() . ' | ' . $e->getFile() . ':' . $e->getLine());
+    echo json_encode(['ok'=>false,'message'=> $is_db ? 'Veritabanı bağlantı hatası. Lütfen yönetici ile iletişime geçin.' : 'Sunucu hatası oluştu.']);
     exit;
 });
 $CFG = require __DIR__ . '/config.php';
@@ -40,7 +43,7 @@ function db():PDO{
     global $CFG; $d=$CFG['db'];
     if(empty($d['name'])||empty($d['user'])) err('DB yapilandirilmamis.',503);
     try{$p=new PDO("mysql:host={$d['host']};port={$d['port']};dbname={$d['name']};charset=utf8mb4",$d['user'],$d['pass'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);}
-    catch(\PDOException $e){err('DB hatasi: '.$e->getMessage(),500);}
+    catch(\PDOException $e){error_log('[okuly] DB: '.$e->getMessage());err('Veritabanı hatası oluştu.',500);}
     return $p;
 }
 function q(string $sql,array $p=[]):array{$s=db()->prepare($sql);$s->execute($p);return $s->fetchAll();}
@@ -81,7 +84,7 @@ function setSetting(int $inst,string $key,string $val):void{
     qRun('INSERT INTO institution_settings (institution_id,setting_key,setting_value) VALUES (?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)',[$inst,$key,$val]);
 }
 function getOkulInfo(int $inst):array{
-    return ['adi'=>getSetting($inst,'okul_adi','Egitim Kurumunuz'),'telefon'=>getSetting($inst,'telefon','04622234466'),'whatsapp'=>getSetting($inst,'whatsapp','04622234466'),'email'=>getSetting($inst,'email',''),'adres'=>getSetting($inst,'adres',''),'devamsizlik_limit_normal'=>(int)getSetting($inst,'devamsizlik_limit_normal','4'),'devamsizlik_limit_mazeret'=>(int)getSetting($inst,'devamsizlik_limit_mazeret','4'),'devamsizlik_uyari_gun'=>(int)getSetting($inst,'devamsizlik_uyari_gun','3')];
+    return ['okul_adi'=>getSetting($inst,'okul_adi','Egitim Kurumunuz'),'telefon'=>getSetting($inst,'telefon','04622234466'),'whatsapp'=>getSetting($inst,'whatsapp','04622234466'),'email'=>getSetting($inst,'email',''),'adres'=>getSetting($inst,'adres',''),'devamsizlik_limit_normal'=>(int)getSetting($inst,'devamsizlik_limit_normal','4'),'devamsizlik_limit_mazeret'=>(int)getSetting($inst,'devamsizlik_limit_mazeret','4'),'devamsizlik_uyari_gun'=>(int)getSetting($inst,'devamsizlik_uyari_gun','3')];
 }
 
 // ── Şablon doldur ──────────────────────────────────────────
@@ -488,11 +491,8 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
                 [$inst,$b['sinif_id']??null,$b['ogrenci_turu']??'egitim',$b['danisman_id']??null,$no,$b['tc_no']??null,$no,$b['ad'],$b['soyad'],$b['dogum_tarihi']??null,$b['cinsiyet']??null,$b['okul_adi']??null,$b['anne_adi']??null,$b['anne_tel']??null,$b['baba_adi']??null,$b['baba_tel']??null,$b['bildirim_tercih']??'baba',$b['acil_tel']??null,$b['saglik_notu']??null,$b['adres']??null,$b['yarisma_turu']??null,$b['yarisma_alani']??null,$b['odeme_durumu']??'bekliyor',$b['kayit_tutari']??0,$b['odeme_notu']??null]);
             ok(['id'=>$nid,'ogrenci_no'=>$no],'Ögrenci eklendi',201);
         }catch(\PDOException $e){
-            if(str_contains($e->getMessage(),'Unknown column')){
-                $nid=qRun('INSERT INTO students (institution_id,sinif_id,ogrenci_no,ad,soyad,dogum_tarihi,cinsiyet,acil_tel,saglik_notu) VALUES (?,?,?,?,?,?,?,?,?)',[$inst,$b['sinif_id']??null,$no,$b['ad'],$b['soyad'],$b['dogum_tarihi']??null,$b['cinsiyet']??null,$b['acil_tel']??null,$b['saglik_notu']??null]);
-                ok(['id'=>$nid,'ogrenci_no'=>$no,'uyari'=>'schema_v3.sql calistirilmamis — bazı alanlar kaydedilmedi'],'Öğrenci eklendi (kısmi)',201);
-            }
-            err('DB hatası: '.$e->getMessage(),500);
+            error_log('[okuly] ogrenci ekle: '.$e->getMessage());
+            err('Öğrenci eklenirken hata oluştu.',500);
         }
     }
 
@@ -525,14 +525,8 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
             qRun("UPDATE students SET aktif=0,mezun=1,mezuniyet_yili=? WHERE id IN ($ph) AND institution_id=?"
                 ,array_merge([$yil],$ids,[$inst]));
         }catch(\PDOException $e){
-            if(str_contains($e->getMessage(),'Unknown column')){
-                try{
-                    qRun('ALTER TABLE students ADD COLUMN mezun TINYINT(1) DEFAULT 0');
-                    qRun('ALTER TABLE students ADD COLUMN mezuniyet_yili YEAR DEFAULT NULL');
-                    qRun("UPDATE students SET aktif=0,mezun=1,mezuniyet_yili=? WHERE id IN ($ph) AND institution_id=?"
-                        ,array_merge([$yil],$ids,[$inst]));
-                }catch(\PDOException $e2){err('DB hatasi: '.$e2->getMessage(),500);}
-            } else err('DB hatasi: '.$e->getMessage(),500);
+            error_log('[okuly] mezun-yap: '.$e->getMessage());
+            err('İşlem sırasında hata oluştu.',500);
         }
         ok(null,count($ids).' ogrenci mezun yapildi');
     }
@@ -623,9 +617,9 @@ function gonderDevamsizlikBildirim(int $sid,string $tarih,string $durum,int $gir
 
     $sablon_kod=$durum==='mazeretli'?'mazeretli':'devamsizlik';
     $sablon=qOne('SELECT icerik FROM message_templates WHERE institution_id=? AND kod=?',[$inst,$sablon_kod]);
-    $icerik=$sablon?$sablon['icerik']:"Sayin Velimiz,\n{$s['ad']} {$s['soyad']} ogrenciniz $tarih tarihinde derse $durum sayilmistir.\n{$okul['adi']}\n📞 {$okul['telefon']}";
+    $icerik=$sablon?$sablon['icerik']:"Sayin Velimiz,\n{$s['ad']} {$s['soyad']} ogrenciniz $tarih tarihinde derse $durum sayilmistir.\n{$okul['okul_adi']}\n📞 {$okul['telefon']}";
     $veli_adi=$tercih==='anne'?$s['anne_adi']:$s['baba_adi'];
-    $mesaj=fillTemplate($icerik,['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['adi'],'telefon'=>$okul['telefon'],'veli_adi'=>$veli_adi??'Velimiz']);
+    $mesaj=fillTemplate($icerik,['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['okul_adi'],'telefon'=>$okul['telefon'],'veli_adi'=>$veli_adi??'Velimiz']);
     gonderBildirim($sid,$tel,$mesaj,$sablon_kod,'whatsapp',$giren,$inst);
 
     // Kritik uyari — limit kontrol
@@ -633,7 +627,7 @@ function gonderDevamsizlikBildirim(int $sid,string $tarih,string $durum,int $gir
     $limit_u=(int)($okul['devamsizlik_uyari_gun']??3);
     if(($stats['g']??0)>=$limit_u||($stats['m']??0)>=$limit_u){
         $krit_sab=qOne('SELECT icerik FROM message_templates WHERE institution_id=? AND kod="kritik"',[$inst]);
-        $km=$krit_sab?fillTemplate($krit_sab['icerik'],['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['adi'],'telefon'=>$okul['telefon']]):"⚠️ {$s['ad']} {$s['soyad']} ogrencinizin devamsizlik sayisi sinira yaklasti.";
+        $km=$krit_sab?fillTemplate($krit_sab['icerik'],['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['okul_adi'],'telefon'=>$okul['telefon']]):"⚠️ {$s['ad']} {$s['soyad']} ogrencinizin devamsizlik sayisi sinira yaklasti.";
         gonderBildirim($sid,$tel,$km,'kritik','whatsapp',$giren,$inst);
     }
 }
@@ -717,7 +711,7 @@ function rBildirim(string $m,string $sub,?int $id):void{
         $tel=$tercih==='anne'?($s['anne_tel']??null):($s['baba_tel']??null);
         if(!$tel)$tel=$s['anne_tel']??$s['baba_tel']??null;
         if(!$tel)err('Veli telefonu tanimli degil',422);
-        $mesaj=fillTemplate($b['mesaj'],['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['adi'],'telefon'=>$okul['telefon'],'mesaj'=>$b['mesaj']]);
+        $mesaj=fillTemplate($b['mesaj'],['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['okul_adi'],'telefon'=>$okul['telefon'],'mesaj'=>$b['mesaj']]);
         ok(gonderBildirim((int)$b['student_id'],$tel,$mesaj,$b['sablon_tipi']??'genel',$b['kanal'],$p['sub'],$inst));
     }
 

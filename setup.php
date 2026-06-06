@@ -57,17 +57,13 @@ $cfg_path = __DIR__.'/config.php';
 function createTables(PDO $pdo, array &$msgs): bool {
     $tables = [
 
-    'institutions' => "CREATE TABLE IF NOT EXISTS institutions (
+    'institution_settings' => "CREATE TABLE IF NOT EXISTS institution_settings (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      ad VARCHAR(150) NOT NULL,
-      slug VARCHAR(80) UNIQUE NOT NULL,
-      telefon VARCHAR(20),
-      whatsapp VARCHAR(20) DEFAULT '04622234466',
-      email VARCHAR(150),
-      adres TEXT,
-      aktif TINYINT(1) DEFAULT 1,
-      olusturma TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+      institution_id INT UNSIGNED NOT NULL DEFAULT 1,
+      setting_key VARCHAR(100) NOT NULL,
+      setting_value TEXT DEFAULT NULL,
+      UNIQUE KEY uk_setting (institution_id, setting_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci",
 
     'users' => "CREATE TABLE IF NOT EXISTS users (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -75,83 +71,82 @@ function createTables(PDO $pdo, array &$msgs): bool {
       ad VARCHAR(80) NOT NULL,
       soyad VARCHAR(80) NOT NULL,
       email VARCHAR(150) UNIQUE NOT NULL,
-      telefon VARCHAR(20),
+      telefon VARCHAR(20) DEFAULT NULL,
       sifre VARCHAR(255) NOT NULL,
       rol ENUM('admin','ogretmen','veli','muhasebe') NOT NULL DEFAULT 'ogretmen',
-      avatar VARCHAR(255),
       aktif TINYINT(1) DEFAULT 1,
-      son_giris TIMESTAMP NULL,
-      olusturma TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+      son_giris TIMESTAMP NULL DEFAULT NULL,
+      olusturma TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      guncelleme TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_institution (institution_id),
+      KEY idx_rol (rol)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci",
 
     'siniflar' => "CREATE TABLE IF NOT EXISTS siniflar (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       institution_id INT UNSIGNED NOT NULL DEFAULT 1,
       ad VARCHAR(80) NOT NULL,
-      donem VARCHAR(20) NOT NULL,
+      donem VARCHAR(20) NOT NULL DEFAULT '2024-2025',
       kapasite TINYINT DEFAULT 40,
+      renk VARCHAR(7) DEFAULT '#4f46e5',
       aktif TINYINT(1) DEFAULT 1,
-      olusturma TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+      olusturma TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_institution (institution_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci",
 
     'students' => "CREATE TABLE IF NOT EXISTS students (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       institution_id INT UNSIGNED NOT NULL DEFAULT 1,
-      sinif_id INT UNSIGNED,
-      veli_id INT UNSIGNED,
-      ogrenci_no VARCHAR(20) UNIQUE,
+      sinif_id INT UNSIGNED DEFAULT NULL,
+      ogrenci_turu ENUM('egitim','proje') NOT NULL DEFAULT 'egitim',
+      danisman_id INT UNSIGNED DEFAULT NULL,
+      ogrenci_no VARCHAR(20) DEFAULT NULL,
+      kurum_no VARCHAR(30) DEFAULT NULL,
+      tc_no VARCHAR(11) DEFAULT NULL,
       ad VARCHAR(80) NOT NULL,
       soyad VARCHAR(80) NOT NULL,
-      dogum_tarihi DATE,
-      cinsiyet ENUM('E','K'),
-      avatar VARCHAR(255),
-      adres TEXT,
-      acil_tel VARCHAR(20),
-      saglik_notu TEXT,
+      dogum_tarihi DATE DEFAULT NULL,
+      cinsiyet ENUM('E','K') DEFAULT NULL,
+      okul_adi VARCHAR(200) DEFAULT NULL,
+      baba_adi VARCHAR(80) DEFAULT NULL,
+      baba_tel VARCHAR(20) DEFAULT NULL,
+      anne_adi VARCHAR(80) DEFAULT NULL,
+      anne_tel VARCHAR(20) DEFAULT NULL,
+      bildirim_tercih ENUM('baba','anne') NOT NULL DEFAULT 'baba',
+      acil_tel VARCHAR(20) DEFAULT NULL,
+      adres TEXT DEFAULT NULL,
+      saglik_notu TEXT DEFAULT NULL,
+      fotograf VARCHAR(255) DEFAULT NULL,
+      yarisma_turu VARCHAR(150) DEFAULT NULL,
+      yarisma_alani VARCHAR(150) DEFAULT NULL,
+      odeme_durumu ENUM('odendi','bekliyor','taksit','muaf') NOT NULL DEFAULT 'bekliyor',
+      kayit_tutari DECIMAL(10,2) DEFAULT 0.00,
+      odeme_notu TEXT DEFAULT NULL,
       kayit_tarihi DATE DEFAULT (CURRENT_DATE),
       aktif TINYINT(1) DEFAULT 1,
+      ayrilma_nedeni VARCHAR(255) DEFAULT NULL,
+      ayrilma_tarihi DATETIME DEFAULT NULL,
       olusturma TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      guncelleme TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-
-    'lessons' => "CREATE TABLE IF NOT EXISTS lessons (
-      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      institution_id INT UNSIGNED NOT NULL DEFAULT 1,
-      sinif_id INT UNSIGNED,
-      ogretmen_id INT UNSIGNED,
-      ad VARCHAR(100) NOT NULL,
-      kod VARCHAR(20),
-      haftalik_saat TINYINT DEFAULT 4,
-      renk VARCHAR(7) DEFAULT '#4f46e5',
-      aktif TINYINT(1) DEFAULT 1
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+      guncelleme TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      mezun TINYINT(1) DEFAULT 0,
+      mezuniyet_yili YEAR DEFAULT NULL,
+      KEY idx_institution (institution_id),
+      KEY idx_sinif (sinif_id),
+      KEY idx_tur (ogrenci_turu),
+      KEY idx_aktif (aktif)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci",
 
     'attendance' => "CREATE TABLE IF NOT EXISTS attendance (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       student_id INT UNSIGNED NOT NULL,
-      lesson_id INT UNSIGNED NOT NULL,
       tarih DATE NOT NULL,
-      durum ENUM('var','yok','gec','izinli') NOT NULL DEFAULT 'var',
-      gec_dakika SMALLINT DEFAULT 0,
+      durum ENUM('geldi','gelmedi','mazeretli') NOT NULL DEFAULT 'geldi',
       not_ TEXT,
-      giris_yapan INT UNSIGNED NOT NULL,
+      giris_yapan INT UNSIGNED DEFAULT NULL,
       olusturma TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       guncelleme TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uniq_devam (student_id, lesson_id, tarih)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-
-    'grades' => "CREATE TABLE IF NOT EXISTS grades (
-      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      student_id INT UNSIGNED NOT NULL,
-      lesson_id INT UNSIGNED NOT NULL,
-      sinav_turu ENUM('yazili1','yazili2','sozlu','proje','performans','yilsonu') NOT NULL,
-      puan DECIMAL(5,2),
-      max_puan DECIMAL(5,2) DEFAULT 100,
-      tarih DATE NOT NULL,
-      aciklama VARCHAR(255),
-      giris_yapan INT UNSIGNED NOT NULL,
-      olusturma TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+      UNIQUE KEY uk_gun (student_id, tarih)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci",
 
     'teacher_notes' => "CREATE TABLE IF NOT EXISTS teacher_notes (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -162,24 +157,51 @@ function createTables(PDO $pdo, array &$msgs): bool {
       kategori ENUM('genel','akademik','davranis','saglik','aile','diger') DEFAULT 'genel',
       onem ENUM('normal','onemli','acil') DEFAULT 'normal',
       veliye_gorunsun TINYINT(1) DEFAULT 1,
+      is_read TINYINT(1) DEFAULT 0,
+      read_at TIMESTAMP NULL DEFAULT NULL,
+      read_by INT UNSIGNED DEFAULT NULL,
       olusturma TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci",
 
     'notification_logs' => "CREATE TABLE IF NOT EXISTS notification_logs (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       institution_id INT UNSIGNED NOT NULL DEFAULT 1,
       student_id INT UNSIGNED NOT NULL,
-      veli_id INT UNSIGNED,
       veli_telefon VARCHAR(20) NOT NULL,
-      kanal ENUM('whatsapp','sms','email','push') NOT NULL,
-      sablon_tipi ENUM('devamsizlik','not','odeme','duyuru','genel') DEFAULT 'genel',
+      kanal ENUM('whatsapp','sms','email') NOT NULL DEFAULT 'whatsapp',
+      sablon_tipi VARCHAR(50) DEFAULT 'genel',
       mesaj TEXT NOT NULL,
-      durum ENUM('pending','sent','delivered','failed') DEFAULT 'pending',
-      api_response TEXT,
-      gonderen_id INT UNSIGNED,
-      gonderim_tarihi DATETIME,
-      olusturma TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+      durum ENUM('pending','sent','delivered','failed','manuel_gonderildi') DEFAULT 'pending',
+      api_response TEXT DEFAULT NULL,
+      gonderen_id INT UNSIGNED DEFAULT NULL,
+      gonderim_tarihi TIMESTAMP NULL DEFAULT NULL,
+      olusturma TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_institution (institution_id),
+      KEY idx_durum (durum),
+      KEY idx_student (student_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci",
+
+    'login_attempts' => "CREATE TABLE IF NOT EXISTS login_attempts (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      ip VARCHAR(45) NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      tarih DATETIME NOT NULL,
+      basarili TINYINT(1) DEFAULT 0,
+      KEY idx_ip_tarih (ip, tarih),
+      KEY idx_email_tarih (email, tarih)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+
+    'message_templates' => "CREATE TABLE IF NOT EXISTS message_templates (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      institution_id INT UNSIGNED NOT NULL DEFAULT 1,
+      kod VARCHAR(50) NOT NULL,
+      baslik VARCHAR(200) NOT NULL,
+      icerik TEXT NOT NULL,
+      aktif TINYINT(1) DEFAULT 1,
+      olusturma TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      guncelleme TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_sablon (institution_id, kod)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci",
 
     'payments' => "CREATE TABLE IF NOT EXISTS payments (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -194,7 +216,7 @@ function createTables(PDO $pdo, array &$msgs): bool {
       not_ TEXT,
       giris_yapan INT UNSIGNED,
       olusturma TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci",
 
     ];
 
@@ -212,8 +234,19 @@ function createTables(PDO $pdo, array &$msgs): bool {
 
     // Başlangıç verileri
     try {
-        // Kurum
-        $pdo->exec("INSERT IGNORE INTO institutions (id,ad,slug,telefon,whatsapp) VALUES (1,'Eğitim Kurumunuz','egitim-kurumunuz','04622234466','04622234466')");
+        // Kurum ayarları (institution_settings)
+        $settings = [
+            ['okul_adi',                    'Eğitim Kurumunuz'],
+            ['telefon',                     '04622234466'],
+            ['whatsapp',                    '04622234466'],
+            ['email',                       ''],
+            ['adres',                       ''],
+            ['devamsizlik_limit_normal',    '4'],
+            ['devamsizlik_limit_mazeret',   '4'],
+            ['devamsizlik_uyari_gun',       '3'],
+        ];
+        $stmtS = $pdo->prepare("INSERT IGNORE INTO institution_settings (institution_id,setting_key,setting_value) VALUES (1,?,?)");
+        foreach ($settings as [$k, $v]) $stmtS->execute([$k, $v]);
 
         // Sınıf
         $pdo->exec("INSERT IGNORE INTO siniflar (institution_id,ad,donem,kapasite) VALUES (1,'2024-2025 A Şubesi','2024-2025',40)");
@@ -221,8 +254,18 @@ function createTables(PDO $pdo, array &$msgs): bool {
         // Geçici admin (setup adım 4'te güncellenir)
         $hash = password_hash('Admin123!', PASSWORD_BCRYPT, ['cost'=>10]);
         $pdo->exec("INSERT IGNORE INTO users (institution_id,ad,soyad,email,sifre,rol,aktif) VALUES (1,'Sistem','Yöneticisi','admin@kodlayap.tr','$hash','admin',1)");
-        $msgs[] = ['ok', '✓ Başlangıç verileri eklendi'];
+        // Mesaj şablonları
+        $sablonlar = [
+            ['devamsizlik', 'Devamsızlık Bildirimi',      "Sayın {{veli_adi}} Velimiz,\n{{ad_soyad}} adlı öğrenciniz bugün derse GELMEMİŞTİR.\n\n{{okul}}\n📞 {{telefon}}"],
+            ['mazeretli',   'Mazeretli Devamsızlık',      "Sayın {{veli_adi}} Velimiz,\n{{ad_soyad}} adlı öğrenciniz bugün MAZERETLİ devamsız sayılmıştır.\n\n{{okul}}\n📞 {{telefon}}"],
+            ['kritik',      'Kritik Devamsızlık Uyarısı', "⚠️ Sayın {{veli_adi}} Velimiz,\n{{ad_soyad}} öğrencinizin devamsızlık hakkı dolmak üzere. Lütfen okulumuzu arayın.\n\n{{okul}}\n📞 {{telefon}}"],
+            ['odeme',       'Ödeme Hatırlatması',         "💰 Sayın {{veli_adi}} Velimiz,\n{{ad_soyad}} öğrenciniz için ödeme tarihiniz yaklaşıyor.\n\n{{okul}}\n📞 {{telefon}}"],
+            ['genel',       'Genel Duyuru',               "Sayın {{veli_adi}} Velimiz,\n{{mesaj}}\n\n{{okul}}\n📞 {{telefon}}"],
+        ];
+        $stmtT = $pdo->prepare("INSERT IGNORE INTO message_templates (institution_id,kod,baslik,icerik) VALUES (1,?,?,?)");
+        foreach ($sablonlar as [$k, $b, $i]) $stmtT->execute([$k, $b, $i]);
 
+        $msgs[] = ['ok', '✓ Başlangıç verileri eklendi'];
     } catch (PDOException $e) {
         $msgs[] = ['wa', '⚠ Başlangıç verileri: ' . $e->getMessage()];
     }
@@ -279,7 +322,7 @@ if ($step === 3 && $_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // ── ADIM 4: AYARLAR & ADMİN ─────────────────────────────────
-if ($step === 4 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['app_url'])) {
+if ($step === 4 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['okul_adi'])) {
 
     $okul  = trim($_POST['okul_adi'] ?? 'Eğitim Kurumunuz');
     $tel   = trim($_POST['okul_tel'] ?? '04622234466');
@@ -319,8 +362,12 @@ if ($step === 4 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['app_ur
                 $msgs[] = ['ok', "✓ Admin oluşturuldu: {$amail}"];
             }
 
-            // institutions tablosunu da güncelle
-            $pdo2->prepare("UPDATE institutions SET ad=?,telefon=?,whatsapp=? WHERE id=1")->execute([$okul,$tel,$wa]);
+            // institution_settings güncelle
+            $stmtU = $pdo2->prepare("INSERT INTO institution_settings (institution_id,setting_key,setting_value) VALUES (1,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)");
+            $stmtU->execute(['okul_adi',  $okul]);
+            $stmtU->execute(['telefon',   $tel]);
+            $stmtU->execute(['whatsapp',  $wa]);
+            $msgs[] = ['ok', '✓ Kurum ayarları kaydedildi'];
 
         } catch (PDOException $e) {
             $msgs[] = ['er', '✗ Admin hatası: '.$e->getMessage()];
