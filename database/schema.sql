@@ -17,10 +17,6 @@ SET time_zone = "+00:00";
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
 /*!40101 SET NAMES utf8mb4 */;
 
---
--- Veritabanı: `galipberk_kod`
---
-
 -- --------------------------------------------------------
 
 --
@@ -56,14 +52,14 @@ CREATE TABLE `institution_settings` (
 --
 
 INSERT INTO `institution_settings` (`id`, `institution_id`, `setting_key`, `setting_value`) VALUES
-(1, 1, 'okul_adi', 'Eğitim Kurumunuz23'),
-(2, 1, 'telefon', '04622234466'),
-(3, 1, 'whatsapp', '04622234466'),
+(1, 1, 'okul_adi', 'Eğitim Kurumunuz'),
+(2, 1, 'telefon', '04622234455'),
+(3, 1, 'whatsapp', '04622234455'),
 (4, 1, 'email', ''),
 (5, 1, 'adres', ''),
-(6, 1, 'devamsizlik_limit_normal', '41'),
-(7, 1, 'devamsizlik_limit_mazeret', '1'),
-(8, 1, 'devamsizlik_uyari_gun', '31');
+(6, 1, 'devamsizlik_limit_normal', '4'),
+(7, 1, 'devamsizlik_limit_mazeret', '4'),
+(8, 1, 'devamsizlik_uyari_gun', '3');
 
 -- --------------------------------------------------------
 
@@ -84,7 +80,7 @@ CREATE TABLE `login_attempts` (
 --
 
 INSERT INTO `login_attempts` (`id`, `ip`, `email`, `tarih`, `basarili`) VALUES
-(1, '92.44.26.122', 'admin@kodlayap.tr', '2026-06-06 19:16:59', 1),
+(1, '92.44.26.122', 'admin@siteniz.tr', '2026-06-06 19:16:59', 1),
 (2, '92.44.26.122', 'aa', '2026-06-06 19:19:50', 0);
 
 -- --------------------------------------------------------
