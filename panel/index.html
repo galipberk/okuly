@@ -445,7 +445,7 @@ a{color:var(--acc);text-decoration:none}
                     <div>👨 {{ s.baba_adi||'—' }} <span v-if="s.baba_tel" style="color:var(--t3);font-size:11px">{{ s.baba_tel }}</span></div>
                     <div style="margin-top:2px">👩 {{ s.anne_adi||'—' }} <span v-if="s.anne_tel" style="color:var(--t3);font-size:11px">{{ s.anne_tel }}</span></div>
                     <div v-if="s.bildirim_tercih" style="font-size:10px;color:var(--acc);font-weight:600;margin-top:2px">
-                      <i class="ti ti-send"></i> {{ s.bildirim_tercih==='anne'?'Anne':'Baba' }}
+                      <i class="ti ti-send"></i> {{ s.bildirim_tercih==='her_ikisi'?'Her İkisine de':(s.bildirim_tercih==='anne'?'Anne':'Baba') }}
                     </div>
                   </td>
                   <td v-if="oGrup==='proje'" style="font-size:12px;color:var(--pur)">
@@ -631,6 +631,7 @@ a{color:var(--acc);text-decoration:none}
                 <div class="bildirim-tercih">
                   <label><input type="radio" v-model="oF.bildirim_tercih" value="baba"> 👨 Baba ({{ oF.baba_tel||'tel girilmedi' }})</label>
                   <label><input type="radio" v-model="oF.bildirim_tercih" value="anne"> 👩 Anne ({{ oF.anne_tel||'tel girilmedi' }})</label>
+                  <label><input type="radio" v-model="oF.bildirim_tercih" value="her_ikisi"> 👨👩 Her İkisine de</label>
                 </div>
               </div>
 

@@ -434,26 +434,82 @@ function rOgrenciler(string $m,?int $id,string $sub):void{
         ok($s);
     }
 
-    // Öğrenci fotoğraf yükleme
+    // Öğrenci fotoğraf yükleme (GÜVENLI VERSİYON)
     if($m==='POST'&&$sub==='fotograf'){
         auth(['admin']);
-        $sid=$id;  // ✅ $id zaten function parameter'ı olarak geçiliyor
+        $sid=$id;
         if(!$sid)err('Öğrenci ID gerekli');
         if(empty($_FILES['fotograf']))err('Dosya yüklenmedi');
+        
         $f=$_FILES['fotograf'];
-        $allowed=['image/jpeg','image/png','image/webp','image/gif'];
-        if(!in_array($f['type']??'',$allowed))err('Sadece JPEG, PNG, WebP formatları kabul edilir');
-        if(($f['size']??0)>3*1024*1024)err('Dosya boyutu 3MB\'yi aşamaz');
-        $dir=__DIR__.'/uploads/ogrenci/';
-        if(!is_dir($dir))mkdir($dir,0755,true);
-        $ext=pathinfo($f['name'],PATHINFO_EXTENSION);
-        $fname='ogrenci_'.(int)$sid.'_'.time().'.'.$ext;
-        if(!move_uploaded_file($f['tmp_name'],$dir.$fname))err('Dosya yüklenemedi',500);
-        // Eski fotoğrafı sil
-        $old=qOne('SELECT fotograf FROM students WHERE id=?',[(int)$sid]);
-        if(!empty($old['fotograf'])){$oldPath=__DIR__.'/uploads/ogrenci/'.basename($old['fotograf']);if(file_exists($oldPath))@unlink($oldPath);}
-        qRun('UPDATE students SET fotograf=? WHERE id=?',['uploads/ogrenci/'.$fname,(int)$sid]);
-        ok(['url'=>'uploads/ogrenci/'.$fname],'Fotoğraf yüklendi');
+        
+        // 1. SUNUCU TARAFINDA GERÇEK MIME TYPE KONTROL
+        // finfo_file kullanarak dosyanın gerçek türünü öğren
+        $finfo = @finfo_open(FILEINFO_MIME_TYPE);
+        $realMime = $finfo ? @finfo_file($finfo, $f['tmp_name']) : '';
+        if($finfo) @finfo_close($finfo);
+        
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if(!in_array($realMime, $allowedMimes))
+            err('Dosya formatı geçersiz. Sadece JPEG, PNG, WebP, GIF kabul edilir');
+        
+        // 2. DOSYA BOYUTU KONTROLÜ
+        $maxSize = 3 * 1024 * 1024; // 3MB
+        if(($f['size']??0) > $maxSize)
+            err('Dosya boyutu 3MB\'yi aşamaz');
+        if(($f['size']??0) < 1000)
+            err('Dosya çok küçük (minimum 1KB)');
+        
+        // 3. DOSYA UZANTISINI MIME TYPE'A GÖRE BEL
+        $mimeToExt = [
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/webp' => 'webp',
+            'image/gif'  => 'gif'
+        ];
+        $ext = $mimeToExt[$realMime] ?? 'jpg';
+        
+        // 4. KLASÖRü HAZIRLA
+        $dir = __DIR__ . '/uploads/ogrenci/';
+        if(!is_dir($dir)) mkdir($dir, 0755, true);
+        
+        // 5. GÜVENLI DOSYA ADI (sadece alfanumerik + alt çizgi)
+        $timestamp = time();
+        $randomId = bin2hex(random_bytes(4)); // 8 karakter hex
+        $fname = sprintf('ogrenci_%d_%d_%s.%s', (int)$sid, $timestamp, $randomId, $ext);
+        $fullPath = $dir . $fname;
+        
+        // 6. UPLOAD YAP
+        if(!move_uploaded_file($f['tmp_name'], $fullPath))
+            err('Dosya yüklenemedi (disk yazma hatası)', 500);
+        
+        // 7. YÜKLENEN DOSYANIN GERÇEKTEN RESİM OLDUĞUNU KONTROL ET
+        $imgInfo = @getimagesize($fullPath);
+        if(!$imgInfo) {
+            @unlink($fullPath); // Hatalı dosyayı sil
+            err('Yüklenen dosya geçerli bir resim değil');
+        }
+        
+        // 8. RESİM BOYUTLARI NORMAL Mİ? (Minimum 10x10, Maximum 10000x10000)
+        $width = $imgInfo[0] ?? 0;
+        $height = $imgInfo[1] ?? 0;
+        if($width < 10 || $height < 10 || $width > 10000 || $height > 10000) {
+            @unlink($fullPath);
+            err('Resim boyutları uygun değil (10x10 ile 10000x10000 arasında olmalı)');
+        }
+        
+        // 9. ESKİ FOTOĞRAFı SİL
+        $old = qOne('SELECT fotograf FROM students WHERE id=?', [(int)$sid]);
+        if(!empty($old['fotograf'])) {
+            $oldPath = __DIR__ . '/uploads/ogrenci/' . basename($old['fotograf']);
+            if(file_exists($oldPath) && is_file($oldPath))
+                @unlink($oldPath);
+        }
+        
+        // 10. DATABASE'E KAYDET
+        qRun('UPDATE students SET fotograf=? WHERE id=?', ['uploads/ogrenci/' . $fname, (int)$sid]);
+        
+        ok(['url' => 'uploads/ogrenci/' . $fname], 'Fotoğraf başarıyla yüklendi');
     }
 
     // Öğrenci pasif yap (okulu bırak)
@@ -562,7 +618,6 @@ function rDevamsizlik(string $m,?int $id,string $sub):void{
     if($m==='GET'&&$sub!=='ozet'){
         $sql='SELECT a.*,s.ad ogrenci_adi,s.soyad ogrenci_soyad,s.ogrenci_no,s.ogrenci_turu FROM attendance a JOIN students s ON s.id=a.student_id WHERE s.institution_id=?';
         $params=[$inst];
-        if($p['rol']==='veli'){$sql.=' AND 1=0';} // veli_id kolonu yok, veli erişimi desteklenmiyor
         $bas=get('baslangic',date('Y-m-01'));$bit=get('bitis',today_str());
         $sql.=' AND a.tarih BETWEEN ? AND ?';$params[]=$bas;$params[]=$bit;
         if(!empty($_GET['student_id'])){$sql.=' AND a.student_id=?';$params[]=(int)$_GET['student_id'];}
@@ -609,25 +664,58 @@ function rDevamsizlik(string $m,?int $id,string $sub):void{
 function gonderDevamsizlikBildirim(int $sid,string $tarih,string $durum,int $giren,int $inst,array $okul):void{
     $s=qOne('SELECT s.* FROM students s WHERE s.id=?',[$sid]);
     if(!$s)return;
-    // Bildirim telefonu — bildirim_tercih'e göre
+    
+    // Bildirim tercihine göre hangi telefon(lar)a göndereceğini belirle
     $tercih=$s['bildirim_tercih']??'baba';
-    $tel=$tercih==='anne'?($s['anne_tel']??null):($s['baba_tel']??null);
-    if(!$tel)$tel=$s['anne_tel']??$s['baba_tel']??$s['acil_tel']??null;
-    if(!$tel)return;
+    $telefonlar=[];
+    $veliler=[];
+    
+    // Tercih: Baba
+    if($tercih==='baba' || $tercih==='her_ikisi'){
+        if(!empty($s['baba_tel'])){
+            $telefonlar[]=$s['baba_tel'];
+            $veliler[]=['tel'=>$s['baba_tel'],'adi'=>$s['baba_adi']??'Baba'];
+        }
+    }
+    
+    // Tercih: Anne
+    if($tercih==='anne' || $tercih==='her_ikisi'){
+        if(!empty($s['anne_tel'])){
+            $telefonlar[]=$s['anne_tel'];
+            $veliler[]=['tel'=>$s['anne_tel'],'adi'=>$s['anne_adi']??'Anne'];
+        }
+    }
+    
+    // Fallback: Acil telefon
+    if(empty($telefonlar) && !empty($s['acil_tel'])){
+        $telefonlar[]=$s['acil_tel'];
+        $veliler[]=['tel'=>$s['acil_tel'],'adi'=>'Acil İletişim'];
+    }
+    
+    // Telefon yoksa çık
+    if(empty($telefonlar))return;
 
+    // Mesaj şablonunu hazırla
     $sablon_kod=$durum==='mazeretli'?'mazeretli':'devamsizlik';
     $sablon=qOne('SELECT icerik FROM message_templates WHERE institution_id=? AND kod=?',[$inst,$sablon_kod]);
-    $icerik=$sablon?$sablon['icerik']:"Sayin Velimiz,\n{$s['ad']} {$s['soyad']} ogrenciniz $tarih tarihinde derse $durum sayilmistir.\n{$okul['okul_adi']}\n📞 {$okul['telefon']}";
-    $veli_adi=$tercih==='anne'?$s['anne_adi']:$s['baba_adi'];
-    $mesaj=fillTemplate($icerik,['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['okul_adi'],'telefon'=>$okul['telefon'],'veli_adi'=>$veli_adi??'Velimiz']);
-    gonderBildirim($sid,$tel,$mesaj,$sablon_kod,'whatsapp',$giren,$inst);
+    $icerik=$sablon?$sablon['icerik']:"Sayın Velimiz,\n{$s['ad']} {$s['soyad']} öğrenciniz $tarih tarihinde derse $durum sayılmıştır.\n{$okul['okul_adi']}\n📞 {$okul['telefon']}";
+    
+    // HER TELEFONa GÖNDER
+    foreach($veliler as $veli){
+        $veli_adi=$veli['adi'];
+        $tel=$veli['tel'];
+        $mesaj=fillTemplate($icerik,['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['okul_adi'],'telefon'=>$okul['telefon'],'veli_adi'=>$veli_adi]);
+        gonderBildirim($sid,$tel,$mesaj,$sablon_kod,'whatsapp',$giren,$inst);
+    }
 
-    // Kritik uyari — limit kontrol
+    // Kritik uyarı — limit kontrol (bir kez yeterli, ilk telefona gönder)
     $stats=qOne('SELECT SUM(durum="gelmedi") g,SUM(durum="mazeretli") m FROM attendance WHERE student_id=?',[$sid]);
     $limit_u=(int)($okul['devamsizlik_uyari_gun']??3);
     if(($stats['g']??0)>=$limit_u||($stats['m']??0)>=$limit_u){
         $krit_sab=qOne('SELECT icerik FROM message_templates WHERE institution_id=? AND kod="kritik"',[$inst]);
-        $km=$krit_sab?fillTemplate($krit_sab['icerik'],['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['okul_adi'],'telefon'=>$okul['telefon']]):"⚠️ {$s['ad']} {$s['soyad']} ogrencinizin devamsizlik sayisi sinira yaklasti.";
+        $km=$krit_sab?fillTemplate($krit_sab['icerik'],['ad_soyad'=>$s['ad'].' '.$s['soyad'],'okul'=>$okul['okul_adi'],'telefon'=>$okul['telefon']]):"⚠️ {$s['ad']} {$s['soyad']} öğrencinizin devamsızlık sayısı sınıra yaklaştı.";
+        // İlk telefona gönder
+        $tel=$telefonlar[0];
         gonderBildirim($sid,$tel,$km,'kritik','whatsapp',$giren,$inst);
     }
 }
@@ -662,7 +750,6 @@ function rOgretmenNot(string $m,?int $id,string $sub):void{
         $sql='SELECT n.*,s.ad ogrenci_adi,s.soyad ogrenci_soyad,u.ad ogretmen_adi,u.soyad ogretmen_soyad FROM teacher_notes n JOIN students s ON s.id=n.student_id JOIN users u ON u.id=n.ogretmen_id WHERE s.institution_id=?';
         $params=[$inst];
         if($p['rol']==='ogretmen'){$sql.=' AND n.ogretmen_id=?';$params[]=$p['sub'];}
-        if($p['rol']==='veli'){$sql.=' AND n.veliye_gorunsun=1 AND 1=0';} // veli_id kolonu yok
         if(!empty($_GET['student_id'])){$sql.=' AND n.student_id=?';$params[]=(int)$_GET['student_id'];}
         if(isset($_GET['is_read'])){$sql.=' AND n.is_read=?';$params[]=(int)$_GET['is_read'];}
         $per=(int)($_GET['per_page']??500);if($per<1||$per>5000)$per=500;
