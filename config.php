@@ -11,16 +11,16 @@ return [
     'db' => [
         'host' => 'localhost',
         'port' => '3306',
-        'name' => 'galipberk_kod',          // ← örn: kodlayap_okul
-        'user' => 'galipberk_kod',          // ← örn: kodlayap_admin
-        'pass' => 'kodlayap46',          // ← DB şifresi
+        'name' => '',          // ← örn: siteniz_db
+        'user' => '',          // ← örn: siteniz_admin
+        'pass' => '',          // ← DB şifresi
         'charset' => 'utf8mb4',
     ],
 
     // ── UYGULAMA ──────────────────────────────────────────
     'app' => [
-        'url'    => 'https://kodlayap.tr',
-        'name' => 'galipberk_kod',
+        'url'    => 'https://siteniz.tr',
+        'name' => 'okuly',
         'debug'  => false,
         'secret' => '695364a0af9daeacb980625bae9689ee6656002c04d3c27f',
     ],
@@ -28,9 +28,9 @@ return [
     // ── OKUL BİLGİLERİ ────────────────────────────────────
     'okul' => [
         'adi'      => 'Eğitim Kurumunuz',
-        'telefon'  => '04622234466',
-        'whatsapp' => '04622234466',
-        'email'    => 'info@kodlayap.tr',
+        'telefon'  => '04622234455',
+        'whatsapp' => '04622234455',
+        'email'    => 'info@siteniz.tr',
     ],
 
     // ── DEVAMSIZLIK EŞİKLERİ ──────────────────────────────
@@ -49,8 +49,8 @@ return [
     // ── SMS (Netgsm) ──────────────────────────────────────
     // https://www.netgsm.com.tr
     'netgsm' => [
-        'user' => 'galipberk_kod',
-        'pass' => 'kodlayap46',
+        'user' => '',
+        'pass' => '',
         'header' => '',
     ],
 
